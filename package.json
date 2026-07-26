@@ -1,0 +1,8 @@
+{
+  "name": "researchandenrich",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "vercel-build": "echo 'researchandenrich is a Node.js config runtime, not a Next.js project. Build skipped.'"
+  }
+}
