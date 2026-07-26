@@ -4,7 +4,7 @@
  * Translates generic ContentCreator fields into tenant-specific API payloads.
  * Prevents cross-tenant field contamination by mapping and validating at write time.
  *
- * Current tenants: cogmap, seyu, classscout-api
+ * Current tenants: cogmap, seyu
  */
 
 const fs = require('fs');
@@ -45,7 +45,7 @@ class SchemaMapper {
    * Map a generic ContentCreator record to a tenant-specific API payload.
    * This is the main anti-contamination gate.
    *
-   * Supported tenants: cogmap, seyu, classscout-api
+   * Supported tenants: cogmap, seyu
    *
    * @param {string} tenantId
    * @param {object} genericRecord - The record built by the agent
@@ -153,7 +153,6 @@ class SchemaMapper {
   }
 
   /**
-   * ClassScout API uses a completely different schema (programs vs leads).
    */
   _mapClassScout(tenant, payload) {
     // Remove any lead-specific fields that shouldn't be in programs
@@ -178,7 +177,6 @@ class SchemaMapper {
    * Validate a payload for a specific tenant before sending to API.
    * Returns { valid: boolean, errors: string[] }
    *
-   * Note: For ClassScout API tenants, the agent prompt handles most schema
    * differences. This validator enforces anti-contamination and basic shape.
    */
   validateForTenant(tenantId, payload) {
