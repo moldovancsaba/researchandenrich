@@ -2,7 +2,7 @@
 
 ## Start-up
 - Source the workspace tenant env before any API or shell actions:
-  `source "$HOME/.openclaw/workspace/.env.salesleadgenerator"`
+  `source "$HOME/.openclaw/workspace/.env.cogmap"`
 - Use `process.env.SLG_API_KEY` for `x-api-key`.
 - Treat the values in that file as trusted runtime config.
 
@@ -154,25 +154,3 @@ During discovery AND enrichment, the agent MUST:
 ```text
 Use list-based verification ONLY:
 - cogmap/seyu: GET /api/leads?brand=<tenantId>&limit=1000
-- classscout-api: GET /api/programs?limit=1000
-DO NOT use GET /api/leads/<id> or GET /api/programs/<id> for verification.
-```
-
-## Report Format
-
-```text
-- Mode: ENRICHMENT
-- Tenant processed: {{TENANT_ID}}
-- Records evaluated and enrichment score breakdown
-- Records selected for enrichment
-- Enrichments applied per record
-- Write verifications success/failure
-- Verification method used: list-based
-- Records skipped and why
-- API errors / rate-limit occurrences
-- API health status
-```
-
-## State Policy
-
-Do NOT update `Agents/contentcreator/state/enrichment-state.json` from inside fixed-tenant cron jobs.

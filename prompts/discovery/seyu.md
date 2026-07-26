@@ -2,8 +2,8 @@
 
 ## Start-up
 - Source the workspace tenant env before any API or shell actions:
-  `source "$HOME/.openclaw/workspace/.env.salesleadgenerator"`
-- Use `process.env.SLG_API_KEY` for `x-api-key`.
+  `source "$HOME/.openclaw/workspace/.env.seyu"`
+- Use `process.env.SEYU_API_KEY` for `x-api-key`.
 - Treat the values in that file as trusted runtime config.
 
 ## Search/router usage
@@ -83,7 +83,6 @@ FORBIDDEN in all discovery runs: Do not write any field related to estimated ann
 ## Value Prop Rules
 - Write value propositions specific to Seyu brand themes: fan selfie engagement, LED/screen activation, sponsor selfies, second-screen experiences, revenue-share models.
 - Do NOT write value propositions using CogMap themes (cognitive assessment, player performance analytics, decision-making profiling, situational-awareness tools).
-- Do NOT write value propositions using ClassScout themes (children's programs, NYC classes, parenting).
 
 ## Quality Gate
 A lead is QUALIFIED when it has:
