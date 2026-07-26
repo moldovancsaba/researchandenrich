@@ -69,34 +69,6 @@
         "mode": "feeder",
         "enabled": true
       }
-    },
-    "classscout-api": {
-      "app": "classscout-api",
-      "displayName": "ClassScout API",
-      "status": "active",
-      "apiBase": "https://classscout-api.vercel.app",
-      "scope": "NYC classes, camps, programs for parents and kids (ages 0-17)",
-      "brandFields": null,
-      "forbiddenFields": null,
-      "iceScoring": false,
-      "discovery": {
-        "prompt": "prompts/discovery/classscout-api.md",
-        "schedule": {
-          "kind": "every",
-          "everyMs": 2700000
-        },
-        "mode": "researcher",
-        "enabled": true
-      },
-      "enrichment": {
-        "prompt": "prompts/enrichment/classscout-api.md",
-        "schedule": {
-          "kind": "every",
-          "everyMs": 2700000
-        },
-        "mode": "researcher",
-        "enabled": true
-      }
     }
   }
 }
