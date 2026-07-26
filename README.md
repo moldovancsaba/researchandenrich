@@ -11,22 +11,17 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 │   │   └── enrichment/
 │   ├── tenants.json             <- tenant configs (incl. per-operation enabled flags)
 │   ├── schema-mapper.js         <- schema mapping + cross-tenant guards
-│   ├── runtime/                 <- shared runtime (cache, HTTP client, retry)
-│   ├── workers/*/               <- per-tenant worker YAML configs
+│   ├── runtime/                  <- shared runtime (cache, HTTP client, retry)
+│   ├── workers/*/                <- per-tenant worker YAML configs
 │   ├── config/
 │   │   ├── cron-generator.js    <- generates cron.yaml from tenants.json + workers
 │   │   └── cron.yaml            <- generated cron schedule
-│   └── prompt-editor/           <- prompt management API (added later)
-│       └── api/
-│           └── prompts/
-│               └── route.ts     <- GET/PUT prompts with MongoDB + disk fallback
+│   ├── apps.yaml                <- app definitions
+│   ├── config/apps/             <- per-app config (researchandenrich.yaml)
+│   ├── package.json             <- Vercel override (build script bypass)
+│   ├── vercel.json              <- static framework config
+│   └── .env.cogmap / .env.seyu <- protected credentials (600 permissions)
 ```
-
-## Prompt Editor
-
-The prompt editor API is available at `/api/prompts` (see `prompt-editor/api/prompts/route.ts`).
-It reads/writes prompts via the API defined here. The researchandenrich repo provides
-the runtime-level prompt storage and retrieval.
 
 ## Per-Tenant Toggles
 
@@ -36,11 +31,25 @@ Each tenant in `tenants.json` has per-operation `enabled` flags:
 {
   "tenants": {
     "cogmap": {
-      "discovery": { "enabled": true, ... },
-      "enrichment": { "enabled": true, ... }
+      "discovery": { "enabled": true },
+      "enrichment": { "enabled": true }
+    },
+    "seyu": {
+      "discovery": { "enabled": true },
+      "enrichment": { "enabled": true }
     }
   }
 }
 ```
 
 The cron-generator reads these flags to include/exclude operations in the cron schedule.
+
+## Deployment Note
+
+This repo is deployed on Vercel as a static project. `vercel.json` forces `framework: static` and `package.json` overrides the build command to prevent Vercel from auto-detecting Next.js (this repo has no Next.js app directory).
+
+## Prohibited
+
+- Do not work on the salesleadgenerator webapp (separate repo, out of scope)
+- No cross-tenant field writes
+- All prompt content + runtime config lives in this repo only
