@@ -1,0 +1,14 @@
+tenant: seyu
+operation: enrichment
+prompt: prompts/enrichment/seyu.md
+schedule:
+  kind: every
+  everyMs: 2700000
+retry:
+  maxAttempts: 3
+  backoffMs: 5000
+timeoutMs: 300000
+dependencies: [seyu-discovery]
+healthCheck:
+  endpoint: GET /api/leads?brand=seyu&limit=1
+  expectedStatus: 200

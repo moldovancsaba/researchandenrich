@@ -1,0 +1,32 @@
+{
+  "defaultQueryType": "general",
+  "mode": "fast",
+  "engines": {
+    "parallel": {
+      "enabled": true,
+      "priority": 1
+    },
+    "youcom": {
+      "enabled": true,
+      "priority": 2
+    },
+    "wiby": {
+      "enabled": true
+    },
+    "waybackAvailable": {
+      "enabled": true
+    },
+    "waybackCdx": {
+      "enabled": true
+    },
+    "gdelt": {
+      "enabled": true
+    }
+  },
+  "routes": {
+    "discover_candidates": ["general"],
+    "verify_source": ["general"],
+    "historical": ["historical"],
+    "media_ignore": false
+  }
+}

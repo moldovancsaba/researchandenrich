@@ -1,0 +1,14 @@
+tenant: cogmap
+operation: enrichment
+prompt: prompts/enrichment/cogmap.md
+schedule:
+  kind: every
+  everyMs: 2700000
+retry:
+  maxAttempts: 3
+  backoffMs: 5000
+timeoutMs: 300000
+dependencies: [cogmap-discovery]
+healthCheck:
+  endpoint: GET /api/leads?brand=cogmap&limit=1
+  expectedStatus: 200

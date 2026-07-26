@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SEARCH_DIR="$(cd "$(dirname "$0")" && pwd)"
+NODE="node"
+SCRIPT="$SEARCH_DIR/src/index.js"
+if [ ! -f "$SCRIPT" ]; then
+  echo {jsonrpc:2.0,id:1,error:{code:-32000,message:router entrypoint not found}} >&2
+  exit 1
+fi
+exec "$NODE" "$SCRIPT" "$@"

@@ -1,0 +1,50 @@
+# SalesLeadGenerator App Configuration
+appId: salesleadgenerator
+displayName: SalesLeadGenerator
+description: B2B sales lead research and enrichment for sports franchises, clubs, federations, and entertainment venues
+
+# API configuration
+apiBase: https://salesleadgenerator.vercel.app
+
+# Verification uses list-based endpoints
+verifier: runtime/verifier/list-based.js
+
+# Schema mapper prevents cross-tenant field contamination
+schemaMapper: runtime/schema-mapper.js
+
+# Search router for web research
+searchRouter:
+  enabled: true
+  runner: "$HOME/.openclaw/workspace/Agents/contentcreator/search-router/seyu-search-router/AgentFinder"
+  engines: [parallel, youcom, wiby, waybackAvailable, waybackCdx, gdelt]
+  fallback: web_fetch
+
+# Health check endpoint template
+healthCheckTemplate: "GET /api/leads?brand={{tenant}}&limit=1"
+
+# Maximum records to process per run (for dedup/quality control)
+maxResultsPerRun: 5
+
+# Require decision maker contact for lead qualification
+requireDecisionMaker: true
+
+# ICE scoring enabled for sales leads
+iceScoring: true
+
+# Revenue fields forbidden in discovery (computed backend)
+forbiddenFields:
+  - estimated_annual_revenue_usd
+
+# Value prop themes per brand
+brandThemes:
+  cogmap:
+    - cognitive assessment
+    - player performance analytics
+    - decision-making profiling
+    - situational-awareness tools
+  seyu:
+    - fan selfie engagement
+    - LED/screen activation
+    - sponsor selfies
+    - second-screen experiences
+    - revenue-share models
