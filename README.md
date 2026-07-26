@@ -50,6 +50,6 @@ This repo is deployed on Vercel as a static project. `vercel.json` forces `frame
 
 ## Prohibited
 
-- Do not work on the salesleadgenerator webapp (separate repo, out of scope)
+- The webapp admin and prompt editor API are out of scope for this workspace
 - No cross-tenant field writes
 - All prompt content + runtime config lives in this repo only
