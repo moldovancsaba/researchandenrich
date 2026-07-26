@@ -1,6 +1,6 @@
 # ContentCreator Agent Runtime
 
-Agent runtime for ContentCreator — unified lead and program research service. Serves three equal tenants (cogmap, seyu, classscout-api) via a round-robin batch scheduler.
+Agent runtime for ContentCreator — unified lead and program research service. Serves two equal tenants (cogmap, seyu) via a round-robin batch scheduler.
 
 ## Repo Layout
 
