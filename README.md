@@ -24,7 +24,7 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 
 ## Prompt Editor
 
-The prompt editor UI lives in the **salesleadgenerator** webapp at `/admin/prompts/[brand]`.
+The prompt editor API is available at `/api/prompts` (see `prompt-editor/api/prompts/route.ts`).
 It reads/writes prompts via the API defined here. The researchandenrich repo provides
 the runtime-level prompt storage and retrieval.
 
