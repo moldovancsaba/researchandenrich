@@ -1,3 +1,7 @@
 {
-  "framework": "static"
+  "framework": "static",
+  "build": {
+    "command": "echo 'Skipping build - researchandenrich is a Node.js config runtime'",
+    "outputDirectory": "."
+  }
 }
