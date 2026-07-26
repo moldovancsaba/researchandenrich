@@ -1,0 +1,13 @@
+{
+  "_comment": "Copy this file to seyu-search-router.config.json (same folder) and fill in only what you use. Anything left out simply stays disabled/default — nothing here is required to start the server.",
+
+  "fess": {
+    "baseUrl": "http://localhost:8080"
+  },
+  "yacyLocal": {
+    "baseUrl": "http://localhost:8090"
+  },
+  "yacyGlobal": {
+    "baseUrl": "http://localhost:8090"
+  }
+}

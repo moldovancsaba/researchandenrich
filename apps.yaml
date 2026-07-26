@@ -1,0 +1,28 @@
+# Apps — Research domain groupings
+# Each app groups tenants that share the same API, schema, and verification logic.
+# Adding a new app = new research domain with different requirements.
+# Adding a new tenant = new client within an existing app.
+
+apps:
+  salesleadgenerator:
+    appId: salesleadgenerator
+    displayName: SalesLeadGenerator
+    description: B2B sales lead research and enrichment for sports franchises, clubs, federations, and entertainment venues
+    tenants: [cogmap, seyu]
+    verifier: runtime/verifier/list-based.js
+    schemaMapper: runtime/schema-mapper.js
+    healthCheckTemplate: "GET /api/leads?brand={{tenant}}&limit=1"
+    maxResultsPerRun: 5
+    requireDecisionMaker: true
+
+  classscout-api:
+    appId: classscout-api
+    displayName: ClassScout API
+    description: NYC children's program research - classes, camps, drop-ins for ages 0-17
+    tenants: [classscout-api]
+    verifier: runtime/verifier/list-based.js
+    schemaMapper: runtime/schema-mapper.js
+    healthCheckTemplate: "GET /api/programs?limit=1"
+    maxResultsPerRun: 10
+    requireBorough: true
+    iceScoring: false

@@ -1,0 +1,25 @@
+{
+  "name": "seyu-search-router",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Resilient multi-engine web search MCP server: automatic failover, circuit breakers, caching, rate limiting and honest 'coverage incomplete' reporting across free/keyless search sources.",
+  "main": "src/index.js",
+  "bin": {
+    "seyu-search-router": "src/index.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js",
+    "smoke": "node scripts/live-smoke-test.js"
+  },
+  "keywords": ["mcp", "search", "failover"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  }
+}

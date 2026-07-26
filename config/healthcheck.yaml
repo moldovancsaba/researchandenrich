@@ -1,0 +1,23 @@
+# Default Health Check Definitions for ContentCreator
+# Per-worker overrides are allowed in workers/<tenant>/<operation>.yaml
+
+# Sales lead tenants use leads list endpoint
+leadsHealthCheck:
+  method: GET
+  endpointTemplate: "/api/leads?brand={{tenant}}&limit=1"
+  expectedStatus: 200
+  maxResponseTimeMs: 5000
+
+# Program research tenants use programs list endpoint
+programsHealthCheck:
+  method: GET
+  endpointTemplate: "/api/programs?limit=1"
+  expectedStatus: 200
+  maxResponseTimeMs: 5000
+
+# Health check intervals (when to run health checks)
+interval:
+  beforeRun: true   # Check health before starting a worker
+  afterRun: true    # Check health after completing a worker
+  onFailure: true   # Check health when a run fails
+  periodic: false   # Do not run periodic health checks independently

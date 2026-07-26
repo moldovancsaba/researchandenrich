@@ -1,0 +1,102 @@
+{
+  "tenants": {
+    "cogmap": {
+      "app": "salesleadgenerator",
+      "displayName": "CogMap",
+      "status": "active",
+      "apiBase": "https://salesleadgenerator.vercel.app",
+      "board": "cogmap",
+      "scope": "US large cities and neighborhoods; youth soccer clubs with 500+ players; professional club academies including MLS, USL, NWSL, CPL, and European academies",
+      "brandFields": {
+        "pro": "pro_for_cogmap",
+        "con": "con_for_cogmap"
+      },
+      "forbiddenFields": {
+        "pro": "pro_for_seyu",
+        "con": "con_for_seyu"
+      },
+      "iceScoring": true,
+      "discovery": {
+        "prompt": "prompts/discovery/cogmap.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": true
+      },
+      "enrichment": {
+        "prompt": "prompts/enrichment/cogmap.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": true
+      }
+    },
+    "seyu": {
+      "app": "salesleadgenerator",
+      "displayName": "Seyu",
+      "status": "active",
+      "apiBase": "https://salesleadgenerator.vercel.app",
+      "board": "seyu",
+      "scope": "Sports clubs, leagues, federations with live events; entertainment venues and live-event promoters; sports media and broadcasters; sports-tech and fan-engagement vendors",
+      "brandFields": {
+        "pro": "pro_for_seyu",
+        "con": "con_for_seyu"
+      },
+      "forbiddenFields": {
+        "pro": "pro_for_cogmap",
+        "con": "con_for_cogmap"
+      },
+      "iceScoring": true,
+      "discovery": {
+        "prompt": "prompts/discovery/seyu.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": true
+      },
+      "enrichment": {
+        "prompt": "prompts/enrichment/seyu.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": true
+      }
+    },
+    "classscout-api": {
+      "app": "classscout-api",
+      "displayName": "ClassScout API",
+      "status": "active",
+      "apiBase": "https://classscout-api.vercel.app",
+      "scope": "NYC classes, camps, programs for parents and kids (ages 0-17)",
+      "brandFields": null,
+      "forbiddenFields": null,
+      "iceScoring": false,
+      "discovery": {
+        "prompt": "prompts/discovery/classscout-api.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "researcher",
+        "enabled": true
+      },
+      "enrichment": {
+        "prompt": "prompts/enrichment/classscout-api.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "researcher",
+        "enabled": true
+      }
+    }
+  }
+}

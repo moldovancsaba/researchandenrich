@@ -1,0 +1,25 @@
+# Retry Policy - Global defaults for ContentCreator
+# Per-worker overrides are allowed in workers/<tenant>/<operation>.yaml
+
+retry:
+  maxAttempts: 3
+  initialDelayMs: 1000
+  maxDelayMs: 30000
+  multiplier: 2
+
+timeout:
+  defaultMs: 300000
+  apiCallMs: 10000
+  searchRouterMs: 30000
+
+alerts:
+  onFailure: true
+  onTimeout: true
+  onRateLimit: true
+  onHealthCheckFailure: true
+  onValidationError: true
+
+logging:
+  level: info
+  format: json
+  retainDays: 30
