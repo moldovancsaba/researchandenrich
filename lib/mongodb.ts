@@ -1,25 +1,20 @@
 import { MongoClient } from "mongodb"
 
-if (!process.env.MONGODB_URI) {
-  throw new Error("Please add your Mongo URI to .env.local")
-}
-
-const uri = process.env.MONGODB_URI!
+const uri = process.env.MONGODB_URI || ""
 const options = {}
 
-let client: MongoClient
-let clientPromise: Promise<MongoClient>
+let client: MongoClient | undefined
+let clientPromise: Promise<MongoClient> | undefined
 
-if (process.env.NODE_ENV === "development") {
-  let globalWithMongo = global as typeof global & { _mongoClientPromise?: Promise<MongoClient> }
-  if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri, options)
-    globalWithMongo._mongoClientPromise = client.connect()
+export function getMongoClient(): Promise<MongoClient> {
+  if (clientPromise) return clientPromise
+  if (!uri) {
+    clientPromise = Promise.reject(new Error("MONGODB_URI is not set"))
+    return clientPromise
   }
-  clientPromise = globalWithMongo._mongoClientPromise
-} else {
   client = new MongoClient(uri, options)
   clientPromise = client.connect()
+  return clientPromise
 }
 
-export default clientPromise
+export default getMongoClient()
