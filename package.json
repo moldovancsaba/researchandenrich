@@ -9,6 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@mantine/core": "^7.17.8",
+    "@mantine/hooks": "^7.17.8",
+    "@sovereignsquad/gds-theme": "^3.9.0",
     "mongodb": "^7.5.0",
     "next": "14.2.0",
     "react": "^18.3.0",
