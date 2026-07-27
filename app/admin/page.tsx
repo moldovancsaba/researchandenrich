@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 
 interface App {
   appId: string
@@ -199,12 +198,12 @@ export default function AdminPage() {
               >
                 Tenants ({tenants.length})
               </button>
-              <Link
-                href="/admin/queue"
-                className="px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-100"
+              <button
+                onClick={() => setActiveTab('queue')}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${activeTab === 'queue' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 Queue
-              </Link>
+              </button>
             </nav>
           </div>
         </div>
