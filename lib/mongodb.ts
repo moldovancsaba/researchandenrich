@@ -12,9 +12,8 @@ export function getMongoClient(): Promise<MongoClient> {
     clientPromise = Promise.reject(new Error("MONGODB_URI is not set"))
     return clientPromise
   }
-  client = new MongoClient(uri, options)
-  clientPromise = client.connect()
-  return clientPromise
+  const localClient = new MongoClient(uri, options)
+  return localClient.connect()
 }
 
 export default getMongoClient()
