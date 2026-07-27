@@ -1,23 +1,19 @@
 import { Inter } from "next/font/google";
-import "@mantine/core/styles.css";
-import "@sovereignsquad/gds-theme/styles.css";
+
 import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
 import { Providers } from "./components/Providers";
 import Link from "next/link";
-
 export const metadata = {
   title: {
     template: "%s · Sales Lead Generator",
     default: "Sales Lead Generator",
   },
   description: "AI-powered sales lead collection platform" };
-
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
-
 export default function RootLayout({
   children,
 }: {

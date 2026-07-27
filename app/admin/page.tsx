@@ -371,7 +371,7 @@ function AppForm({ app, onSave, onCancel }: { app: App | null; onSave: (app: App
   const [form, setForm] = useState<App>(app || {
     appId: '', displayName: '', description: '', apiBase: '', verifier: 'list-based',
     schemaMapper: 'default', searchEngines: ['google', 'serpapi'], qualityPipeline: ['DRAFT', 'CHECKED', 'VERIFIED'],
-    maxResultsPerRun: 50, tenantIds: [],
+    maxResultsPerRun: 50, tenantIds: [], createdAt: '', updatedAt: '',
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -424,6 +424,7 @@ function TenantForm({ tenant, apps, onSave, onCancel }: { tenant: Tenant | null;
     apiBase: '', board: '', brandFields: { pro: '', con: '', valueProp: '' }, forbiddenFields: [],
     iceScoring: false, discovery: { prompt: '', schedule: { kind: 'every', everyMs: 2700000 } },
     enrichment: { prompt: '', schedule: { kind: 'every', everyMs: 2700000 } }, sortOrder: 0,
+    createdAt: '', updatedAt: '',
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -480,6 +481,18 @@ function TenantForm({ tenant, apps, onSave, onCancel }: { tenant: Tenant | null;
 }
 
 function QueueView({ tenants }: { tenants: Tenant[] }) {
+  const StatusBadge = ({ status }: { status: string }) => {
+    const colors: Record<string, string> = {
+      active: 'bg-green-100 text-green-800',
+      paused: 'bg-yellow-100 text-yellow-800',
+      disabled: 'bg-red-100 text-red-800',
+    }
+    return (
+      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+        {status}
+      </span>
+    )
+  }
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
