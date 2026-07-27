@@ -3,3 +3,9 @@ node_modules/
 out/
 *.log
 .env*.local
+.env.check
+.env.prod
+.env.vercel
+.vercel/
+.env.cogmap
+.env.cogmap.bak
