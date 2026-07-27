@@ -11,8 +11,8 @@ export default function Home() {
             ContentCreator
           </Link>
           <div className="flex gap-4">
-            <Link href="/admin/apps" className="text-sm text-gray-600 hover:text-gray-900">Apps</Link>
-            <Link href="/admin/tenants" className="text-sm text-gray-600 hover:text-gray-900">Tenants</Link>
+            <Link href="/admin" className="text-sm text-gray-600 hover:text-gray-900">Apps</Link>
+            <Link href="/admin" className="text-sm text-gray-600 hover:text-gray-900">Tenants</Link>
             <Link href="/admin/queue" className="text-sm text-gray-600 hover:text-gray-900">Queue</Link>
           </div>
         </div>
