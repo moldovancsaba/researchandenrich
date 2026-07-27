@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '/root/.openclaw/workspace/Agents/contentcreator/lib/mongodb'
-import { requireApiKey } from '/root/.openclaw/workspace/Agents/contentcreator/lib/api-auth'
+import clientPromise from '../../../../lib/mongodb'
+import { requireApiKey } from '../../../../lib/api-auth'
 
 const COLLECTION = 'contentcreator_apps'
 
