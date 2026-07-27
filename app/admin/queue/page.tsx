@@ -118,7 +118,24 @@ export default function QueuePage() {
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="divide-y divide-gray-200">
             {jobs.map((job) => {
-              const tenant = tenants.find((t) => t.tenantId === job.tenantId)
+              const toggleJob = async (jobId: string, currentEnabled: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/queue`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, enabled: !currentEnabled }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      // Refresh the jobs list
+      const queueRes = await fetch('/api/admin/queue')
+      const queueData = await queueRes.json()
+      setJobs(queueData.jobs || [])
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
+
+  const tenant = tenants.find((t) => t.tenantId === job.tenantId)
               return (
                 <div key={job.id} className="px-6 py-4">
                   <div className="flex items-center justify-between">
@@ -130,6 +147,16 @@ export default function QueuePage() {
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${job.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                           {job.enabled ? 'enabled' : 'disabled'}
                         </span>
+                        <button
+                          onClick={() => toggleJob(job.id, job.enabled)}
+                          className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                            job.enabled
+                              ? 'border-red-300 text-red-700 hover:bg-red-50'
+                              : 'border-green-300 text-green-700 hover:bg-green-50'
+                          }`}
+                        >
+                          {job.enabled ? 'Stop' : 'Start'}
+                        </button>
                       </div>
                       <p className="text-sm text-gray-500 mt-1">{job.operation} — {job.id}</p>
                     </div>

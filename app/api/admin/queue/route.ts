@@ -153,3 +153,69 @@ export async function PUT(request: Request) {
     )
   }
 }
+
+/**
+ * PATCH /api/admin/queue
+ * Toggle enabled/disabled for a single job.
+ * Body: { jobId: string, enabled: boolean }
+ */
+export async function PATCH(request: Request) {
+  const authError = requireApiKey(request)
+  if (authError) return authError
+
+  try {
+    const body = await request.json()
+    const { jobId, enabled } = body as { jobId: string; enabled: boolean }
+
+    if (!jobId || typeof enabled !== 'boolean') {
+      return NextResponse.json(
+        { error: 'jobId and enabled are required' },
+        { status: 400 }
+      )
+    }
+
+    const match = jobId.match(/^queue-(.+?)-(discovery|enrichment)$/)
+    if (!match) {
+      return NextResponse.json(
+        { error: `Invalid job id format: ${jobId}` },
+        { status: 400 }
+      )
+    }
+    const tenantId = match[1]
+    const operation = match[2]
+    const scheduleField = operation === 'discovery' ? 'discovery.schedule' : 'enrichment.schedule'
+
+    const client = await clientPromise
+    const db = client.db()
+
+    // Fetch tenant to determine active status from the job id alone
+    const tenant = await db.collection(TENANTS_COLLECTION).findOne({ tenantId })
+    if (!tenant) {
+      return NextResponse.json(
+        { error: `Tenant not found: ${tenantId}` },
+        { status: 404 }
+      )
+    }
+
+    // Update the schedule with the enabled flag stored alongside
+    await db.collection(TENANTS_COLLECTION).updateOne(
+      { tenantId },
+      {
+        $set: {
+          [scheduleField]: {
+            ...(tenant as any)[operation === 'discovery' ? 'discovery' : 'enrichment']?.schedule || { kind: 'every', everyMs: 2700000 },
+            enabled,
+          },
+        },
+      }
+    )
+
+    return NextResponse.json({ jobId, enabled })
+  } catch (error: any) {
+    console.error('[API:admin/queue] PATCH error:', error)
+    return NextResponse.json(
+      { error: error?.message || 'Unknown failure' },
+      { status: 500 }
+    )
+  }
+}
