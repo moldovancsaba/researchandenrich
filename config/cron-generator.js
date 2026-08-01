@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Cron Generator - Generates config/cron.yaml from workers/*/ discovery.yaml and enrichment.yaml
+ * Cron Generator - Generates config/cron.yaml from workers/<tenant>/discovery.yaml and enrichment.yaml
  *
  * Usage:
  *   node config/cron-generator.js
  *   node config/cron-generator.js --dry-run  (print without writing)
  *
- * Reads all YAML files from workers/*/ and generates config/cron.yaml.
+ * Reads all YAML files from workers/<tenant>/ and generates config/cron.yaml.
  * Respects tenant status (paused/disabled tenants get disabled cron entries).
  * Respects per-operation enabled flags in tenants.json (discovery/enrichment can be toggled independently).
  */

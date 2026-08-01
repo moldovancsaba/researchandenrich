@@ -1,0 +1,14 @@
+tenant: dvsc
+operation: enrichment
+prompt: prompts/enrichment/dvsc.md
+schedule:
+  kind: every
+  everyMs: 2700000
+retry:
+  maxAttempts: 3
+  backoffMs: 5000
+timeoutMs: 300000
+dependencies: [dvsc-discovery]
+healthCheck:
+  endpoint: GET /api/leads?brand=dvsc&limit=1
+  expectedStatus: 200

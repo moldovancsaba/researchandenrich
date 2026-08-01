@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "search-router": {
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR}/search-router/seyu-search-router/src/index.js"]
+    }
+  }
+}
