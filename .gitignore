@@ -9,3 +9,5 @@ out/
 .vercel/
 .env.cogmap
 .env.cogmap.bak
+.env.seyu
+.env.dvsc
