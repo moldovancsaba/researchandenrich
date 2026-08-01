@@ -110,12 +110,18 @@ This is a hard constraint, not guidance.
 
 ```text
 Before enrichment, fetch tenant settings:
-- GET /api/sales-settings/<tenantId>?tenantId=<tenantId>
+- GET /api/sales-settings/<brand>?tenantId=default
   (NOT /api/settings -- that route is unrelated, pipeline-weight/forecast
   config with no brand or tenantId awareness at all; confirmed by reading
-  its own source, not assumed. Confirmed live and working: this same
-  /api/sales-settings/<tenantId> call successfully returned real dealSize/
-  product data during a live test discovery run against dvsc.)
+  its own source, not assumed. The query param is literally `default`, NOT
+  the tenant/brand ID -- `tenantId` and `brand` are two separate axes in
+  this system, and every brand's real Sales Settings are stored under
+  tenantId `default` today, confirmed by direct API comparison
+  (`?tenantId=<brand>` returns an empty default document for every brand
+  tested; `?tenantId=default` returns the real one). Confirmed live and
+  working: this same /api/sales-settings/<brand>?tenantId=default call
+  successfully returned real dealSize/product data during a live test
+  discovery run against dvsc.)
 Use ONLY as calibration. Never let settings override `tenants.json` scope.
 Use:
 - companyName / mainIndustry / customerTypes → in-scope buyer check
@@ -135,7 +141,7 @@ Use:
 During discovery AND enrichment, the agent MUST:
 
 1. Fetch tenant settings:
-   GET /api/sales-settings/<brand>?tenantId=<tenantId>
+   GET /api/sales-settings/<brand>?tenantId=default
 
 2. For discovery (new leads): call `estimatePurchase(settings, lead, brand)`
    For enrichment (existing leads): call `duringEnrichmentUpdate(existingInputs, settings, brand)`
