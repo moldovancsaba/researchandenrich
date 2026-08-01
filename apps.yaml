@@ -8,7 +8,7 @@ apps:
     appId: researchandenrich
     displayName: ResearchEnrich
     description: Business and program research across sports, entertainment, media, and tech
-    tenants: [cogmap, seyu]
+    tenants: [cogmap, seyu, dvsc]
     verifier: runtime/verifier/list-based.js
     schemaMapper: runtime/schema-mapper.js
     healthCheckTemplate: "GET /api/leads?brand={{tenant}}&limit=1"

@@ -1,6 +1,6 @@
 # ContentCreator Agent Runtime
 
-Agent runtime for ContentCreator — unified lead and program research service. Serves two equal tenants (cogmap, seyu) via a round-robin batch scheduler.
+Agent runtime for ContentCreator — unified lead and program research service. Serves three tenants (cogmap, seyu, dvsc), each run as a fixed-tenant cron job — one tenant per run, no round-robin state, per the Fixed-Tenant Contract embedded in every prompt file.
 
 ## Repo Layout
 
@@ -39,8 +39,12 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 │   ├── apps.yaml                  <- app definitions
 │   ├── config/apps/               <- per-app config (researchandenrich.yaml)
 │   ├── vercel.json                <- Vercel config (empty, auto-detects Next.js)
-│   └── .env.cogmap / .env.seyu    <- protected credentials (600 permissions)
+│   └── .env.cogmap / .env.seyu / .env.dvsc  <- protected credentials (600 permissions)
 ```
+
+See `docs/RUNTIME_ARCHITECTURE_NOTES.md` for details on this repo's two unsynced
+config sources (static files vs. the Mongo-backed admin API), Claude Code MCP
+compatibility (`.mcp.json`), and other findings from onboarding `dvsc`.
 
 ## Per-Tenant Toggles
 
@@ -56,10 +60,18 @@ Each tenant in `tenants.json` has per-operation `enabled` flags:
     "seyu": {
       "discovery": { "enabled": true },
       "enrichment": { "enabled": true }
+    },
+    "dvsc": {
+      "discovery": { "enabled": false },
+      "enrichment": { "enabled": false }
     }
   }
 }
 ```
+
+`dvsc` ships paused/disabled by default — it has no real leads yet and its
+Sales Settings deal-size bands are unconfigured. Flip both `enabled` flags
+to `true` once it's ready to go live.
 
 The cron-generator reads these flags to include/exclude operations in the cron schedule.
 

@@ -8,13 +8,10 @@
       "board": "cogmap",
       "scope": "US large cities and neighborhoods; youth soccer clubs with 500+ players; professional club academies including MLS, USL, NWSL, CPL, and European academies",
       "brandFields": {
-        "pro": "pro_for_cogmap",
-        "con": "con_for_cogmap"
+        "pro": "pro_for_organization",
+        "con": "con_for_organization"
       },
-      "forbiddenFields": {
-        "pro": "pro_for_seyu",
-        "con": "con_for_seyu"
-      },
+      "forbiddenFields": [],
       "iceScoring": true,
       "discovery": {
         "prompt": "prompts/discovery/cogmap.md",
@@ -43,13 +40,10 @@
       "board": "seyu",
       "scope": "Sports clubs, leagues, federations with live events; entertainment venues and live-event promoters; sports media and broadcasters; sports-tech and fan-engagement vendors",
       "brandFields": {
-        "pro": "pro_for_seyu",
-        "con": "con_for_seyu"
+        "pro": "pro_for_organization",
+        "con": "con_for_organization"
       },
-      "forbiddenFields": {
-        "pro": "pro_for_cogmap",
-        "con": "con_for_cogmap"
-      },
+      "forbiddenFields": [],
       "iceScoring": true,
       "discovery": {
         "prompt": "prompts/discovery/seyu.md",
@@ -68,6 +62,38 @@
         },
         "mode": "feeder",
         "enabled": true
+      }
+    },
+    "dvsc": {
+      "app": "researchandenrich",
+      "displayName": "DVSC",
+      "status": "paused",
+      "apiBase": "https://salesleadgenerator.vercel.app",
+      "board": "dvsc",
+      "scope": "Hungarian companies active in sport/media sponsorship and advertising, evaluated as sponsors for Debreceni Vasutas Sport Club (DVSC): shirt/kit sponsorship, stadium/stand naming rights, LED perimeter boards, hospitality/VIP, digital/social channel sponsorship, official-supplier categories, and section-specific sponsorship (men's football, women's handball, academy/youth)",
+      "brandFields": {
+        "pro": "pro_for_organization",
+        "con": "con_for_organization"
+      },
+      "forbiddenFields": [],
+      "iceScoring": true,
+      "discovery": {
+        "prompt": "prompts/discovery/dvsc.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": false
+      },
+      "enrichment": {
+        "prompt": "prompts/enrichment/dvsc.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": false
       }
     }
   }

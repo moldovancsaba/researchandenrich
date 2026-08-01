@@ -4,7 +4,7 @@
  * Translates generic ContentCreator fields into tenant-specific API payloads.
  * Prevents cross-tenant field contamination by mapping and validating at write time.
  *
- * Current tenants: cogmap, seyu
+ * Current tenants: cogmap, seyu, dvsc
  */
 
 const fs = require('fs');
@@ -45,7 +45,7 @@ class SchemaMapper {
    * Map a generic ContentCreator record to a tenant-specific API payload.
    * This is the main anti-contamination gate.
    *
-   * Supported tenants: cogmap, seyu
+   * Supported tenants: cogmap, seyu, dvsc
    *
    * @param {string} tenantId
    * @param {object} genericRecord - The record built by the agent
@@ -64,9 +64,9 @@ class SchemaMapper {
     // Tenant-specific field mapping
     switch (tenantId) {
       case 'cogmap':
-        return this._mapCogmapSeyu(tenant, payload);
       case 'seyu':
-        return this._mapCogmapSeyu(tenant, payload);
+      case 'dvsc':
+        return this._mapCogmapSeyu(tenantId, tenant, payload);
       case 'classscout-api':
         return this._mapClassScout(tenant, payload);
       default:
@@ -75,21 +75,29 @@ class SchemaMapper {
   }
 
   /**
-   * CogMap and Seyu share the same lead schema, but with different brand fields.
+   * CogMap, Seyu, and DVSC share the same lead schema, but with different
+   * forecast-field normalization per tenant. tenantId is passed explicitly
+   * rather than read off `tenant.id` -- tenant objects loaded from
+   * tenants.json never carry an `id` property (a real, previously-latent
+   * bug: `tenant.id === 'cogmap'` was always false, so this method's own
+   * forecast-field normalization below never actually ran for any tenant).
    */
-  _mapCogmapSeyu(tenant, payload) {
-    // Both tenants now share the same brand field names:
+  _mapCogmapSeyu(tenantId, tenant, payload) {
+    // All three tenants now share the same brand field names:
     // pro_for_organization / con_for_organization
     // Nothing to remap here; keep payload as-is.
 
-    // Do NOT force a board field for cogmap/seyu.
+    // Do NOT force a board field for cogmap/seyu/dvsc.
     // The SalesLeadGenerator API routes via `brand`, not `board`.
 
     // Standardize emails and phones
     this._standardizeContacts(payload);
 
-    // Normalize cogmap forecast fields if present
-    if (tenant.id === 'cogmap') {
+    // Normalize cogmap/dvsc forecast fields if present -- dvsc reuses
+    // cogmap's own deal-size-band model (issue #148 in salesleadgenerator),
+    // so the same recommended_tier/revenue_model/estimated_participants
+    // normalization applies to both.
+    if (tenantId === 'cogmap' || tenantId === 'dvsc') {
       if (payload.recommended_tier && typeof payload.recommended_tier === 'string') {
         const normalized = payload.recommended_tier.trim().toLowerCase();
         if (!['essential', 'performance', 'elite', 'multiple'].includes(normalized)) {
@@ -117,8 +125,10 @@ class SchemaMapper {
       }
     }
 
-    // Normalize seyu company-specific pricing if present
-    if (tenant.id === 'seyu') {
+    // Normalize seyu company-specific pricing if present -- dvsc has no
+    // pricingByCompany field of its own (it reuses cogmap's deal-size-band
+    // model above instead), so this branch stays seyu-only.
+    if (tenantId === 'seyu') {
       if (payload.pricingByCompany && typeof payload.pricingByCompany === 'object') {
         const normalized = {};
         for (const [company, data] of Object.entries(payload.pricingByCompany)) {
@@ -203,7 +213,8 @@ class SchemaMapper {
     switch (tenantId) {
       case 'cogmap':
       case 'seyu':
-        this._validateLead(tenant, payload, errors);
+      case 'dvsc':
+        this._validateLead(tenantId, tenant, payload, errors);
         break;
       case 'classscout-api':
         this._validateProgram(tenant, payload, errors);
@@ -216,7 +227,7 @@ class SchemaMapper {
     };
   }
 
-  _validateLead(tenant, payload, errors) {
+  _validateLead(tenantId, tenant, payload, errors) {
     // Validate contacts
     if (payload.contacts && !Array.isArray(payload.contacts)) {
       errors.push('contacts must be an array');
@@ -236,18 +247,25 @@ class SchemaMapper {
       errors.push(`Phone not in international format: ${payload.contact_phone}`);
     }
 
-    // Validate brand field exists
+    // Validate brand field shape -- pro_for_organization/con_for_organization
+    // accept either a single string or a string[] in salesleadgenerator's
+    // real schema (app/types.ts), not array-only as this check previously
+    // assumed.
     const proField = tenant.brandFields?.pro;
     const conField = tenant.brandFields?.con;
-    if (proField && !Array.isArray(payload[proField])) {
-      errors.push(`${proField} must be an array`);
+    const isStringOrStringArray = (v) => v === undefined
+      || typeof v === 'string'
+      || (Array.isArray(v) && v.every((x) => typeof x === 'string'));
+    if (proField && payload[proField] !== undefined && !isStringOrStringArray(payload[proField])) {
+      errors.push(`${proField} must be a string or string[]`);
     }
-    if (conField && !Array.isArray(payload[conField])) {
-      errors.push(`${conField} must be an array`);
+    if (conField && payload[conField] !== undefined && !isStringOrStringArray(payload[conField])) {
+      errors.push(`${conField} must be a string or string[]`);
     }
 
-    // Validate cogmap forecast fields
-    if (tenant.id === 'cogmap') {
+    // Validate cogmap/dvsc forecast fields -- dvsc reuses cogmap's own
+    // deal-size-band model (see _mapCogmapSeyu above).
+    if (tenantId === 'cogmap' || tenantId === 'dvsc') {
       const validTiers = ['essential', 'performance', 'elite', 'multiple'];
       const validRevenueModels = ['per_participant', 'revenue_share', 'hybrid'];
       if (payload.recommended_tier && !validTiers.includes(payload.recommended_tier)) {
