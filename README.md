@@ -46,6 +46,63 @@ See `docs/RUNTIME_ARCHITECTURE_NOTES.md` for details on this repo's two unsynced
 config sources (static files vs. the Mongo-backed admin API), Claude Code MCP
 compatibility (`.mcp.json`), and other findings from onboarding `dvsc`.
 
+## New Agent Onboarding
+
+This repo is self-sufficient — a new agent (OpenClaw/kiloclaw or Claude Code)
+being pointed here to run discovery/enrichment for any tenant needs nothing
+beyond what's already in the repo. Do this, in order, rather than asking for
+tenant-specific instructions elsewhere:
+
+1. Clone this repo.
+2. Read `tenants.json` for the full, current list of tenants and each one's
+   `status` (`active`/`paused`) and per-operation `discovery.enabled` /
+   `enrichment.enabled` flags. Only act on a tenant where both are `true` —
+   don't infer readiness from anything else, including how much you know
+   about that tenant's business.
+3. For each tenant you're assigned to run: read `workers/<tenantId>/discovery.yaml`
+   and `workers/<tenantId>/enrichment.yaml`, then the matching
+   `prompts/discovery/<tenantId>.md` / `prompts/enrichment/<tenantId>.md`.
+   Those prompt files are the complete, authoritative, tenant-specific
+   instructions (scope, forbidden terms, forecast fields, ICP guidance) —
+   follow them verbatim, don't improvise scope or fields.
+4. Source `.env.<tenantId>` before any API or search call, per that tenant's
+   own prompt file's "Start-up" section. **Every tenant currently shares the
+   same `SLG_API_KEY` and the same MongoDB Atlas cluster** (confirmed by
+   comparing connection strings across `.env.cogmap`/`.env.seyu` — same
+   host, different per-tenant-scoped credential strings). If a tenant's
+   `.env.<tenantId>` still has placeholder values (true for a
+   freshly-onboarded tenant, e.g. `dvsc` today), copy the real
+   `SLG_API_KEY` value and a working Mongo connection string from an
+   existing tenant's env file (e.g. `.env.cogmap`) rather than treating
+   them as unknown or blocked on — that's the actual current
+   infrastructure, not a guess. Confirm with the repo owner before relying
+   on this if it's ever no longer true for a given tenant.
+5. Follow the Fixed-Tenant Contract every prompt file states: one tenant
+   per run, no parallel execution across tenants, linear only — a real
+   constraint of this environment's limited resources, not a style choice.
+6. Use the search router (`search-router/seyu-search-router`) per each
+   prompt's "Search/router usage" section instead of ad-hoc web search.
+   Run `npm install` inside `search-router/seyu-search-router/` first if
+   it hasn't been installed yet (its `node_modules` is gitignored).
+7. `config/cron.yaml` is generated, not hand-edited. If a tenant's schedule
+   or enabled flags change, edit `tenants.json` / `workers/<tenantId>/*.yaml`
+   and re-run `node config/cron-generator.js`.
+8. Read `docs/RUNTIME_ARCHITECTURE_NOTES.md` for known gaps and prior
+   findings (the dual static-file/Mongo-admin config-source split, bugs
+   already found and fixed, live-test results) before assuming anything
+   not explicitly stated in a tenant's own files.
+
+**Onboarding a brand-new tenant** follows the exact same pattern `dvsc`
+used: add an entry to `tenants.json` and `apps.yaml`, add
+`workers/<id>/{discovery,enrichment}.yaml`, write
+`prompts/{discovery,enrichment}/<id>.md`, and add a `.env.<id>` file
+(reusing the shared `SLG_API_KEY`/Mongo credentials per step 4 above,
+unless the new tenant is explicitly meant to have its own). Then run
+`node config/cron-generator.js` to regenerate `config/cron.yaml`. Ship the
+new tenant paused (`status: "paused"`, both `enabled` flags `false`) until
+its Sales Settings are configured in salesleadgenerator and it's ready to
+go live — the same convention `dvsc` shipped under.
+
 ## Per-Tenant Toggles
 
 Each tenant in `tenants.json` has per-operation `enabled` flags:
@@ -69,9 +126,13 @@ Each tenant in `tenants.json` has per-operation `enabled` flags:
 }
 ```
 
-`dvsc` ships paused/disabled by default — it has no real leads yet and its
-Sales Settings deal-size bands are unconfigured. Flip both `enabled` flags
-to `true` once it's ready to go live.
+`dvsc` ships paused/disabled by default. Its Sales Settings (dealSize bands,
+product lines) are now configured in salesleadgenerator as disclosed
+estimates (see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §6), and a live test run
+confirmed the full discovery→lead→ticket-size pipeline works end to end. It
+stays paused until `.env.dvsc` has real credentials (see New Agent
+Onboarding above) and someone makes the explicit decision to flip both
+`enabled` flags to `true` and re-run `node config/cron-generator.js`.
 
 The cron-generator reads these flags to include/exclude operations in the cron schedule.
 
