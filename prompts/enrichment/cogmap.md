@@ -110,7 +110,12 @@ This is a hard constraint, not guidance.
 
 ```text
 Before enrichment, fetch tenant settings:
-- GET /api/settings?tenantId=<tenantId>
+- GET /api/sales-settings/<tenantId>?tenantId=<tenantId>
+  (NOT /api/settings -- that route is unrelated, pipeline-weight/forecast
+  config with no brand or tenantId awareness at all; confirmed by reading
+  its own source, not assumed. Confirmed live and working: this same
+  /api/sales-settings/<tenantId> call successfully returned real dealSize/
+  product data during a live test discovery run against dvsc.)
 Use ONLY as calibration. Never let settings override `tenants.json` scope.
 Use:
 - companyName / mainIndustry / customerTypes → in-scope buyer check
@@ -130,7 +135,7 @@ Use:
 During discovery AND enrichment, the agent MUST:
 
 1. Fetch tenant settings:
-   GET /api/settings?tenantId=<tenantId>&brand=<brand>
+   GET /api/sales-settings/<brand>?tenantId=<tenantId>
 
 2. For discovery (new leads): call `estimatePurchase(settings, lead, brand)`
    For enrichment (existing leads): call `duringEnrichmentUpdate(existingInputs, settings, brand)`

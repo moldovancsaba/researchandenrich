@@ -124,12 +124,18 @@ This is a hard constraint, not guidance.
 
 ```text
 Before enrichment, fetch tenant settings:
-- GET /api/settings?tenantId=dvsc
+- GET /api/sales-settings/dvsc?tenantId=dvsc
+  (NOT /api/settings -- that route is unrelated, pipeline-weight/forecast
+  config with no brand or tenantId awareness at all; confirmed by reading
+  its own source, not assumed.)
 Use ONLY as calibration. Never let settings override `tenants.json` scope.
-If settings are unavailable or unconfigured (real for a newly-onboarded
-brand — DVSC's Sales Settings dealSize bands may not be filled in yet), fall
-back to brand-default logic and mark product_fit_notes as "no settings
-available" rather than guessing a plausible-looking figure.
+As of a live test discovery run (2026-08-01), DVSC's Sales Settings ARE
+configured: dealSize small/medium/large/enterprise bands and 7 product
+lines exist. They are disclosed estimates, not confirmed real pricing --
+see the settings doc's own `notes` field for sourcing. If settings are
+ever unavailable or unconfigured again, fall back to brand-default logic
+and mark product_fit_notes as "no settings available" rather than
+guessing a plausible-looking figure.
 ```
 
 ## Local Ticket-Size Estimator (mandatory)
@@ -139,7 +145,7 @@ Before updating any lead, the agent MUST call the local estimator to
 recompute ticket-size inputs:
 
 1. Fetch tenant settings:
-   GET /api/settings?tenantId=dvsc&brand=dvsc
+   GET /api/sales-settings/dvsc?tenantId=dvsc
 
 2. Call the local estimator:
    duringEnrichmentUpdate(existingInputs, settings, 'dvsc')

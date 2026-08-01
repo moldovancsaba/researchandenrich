@@ -342,7 +342,12 @@ This is a hard constraint, not guidance.
 
 ```text
 Before scoring, fetch tenant settings:
-- GET /api/settings?tenantId=<tenantId>
+- GET /api/sales-settings/<tenantId>?tenantId=<tenantId>
+  (NOT /api/settings -- that route is unrelated, pipeline-weight/forecast
+  config with no brand or tenantId awareness at all; confirmed by reading
+  its own source, not assumed. Confirmed live and working: this same
+  /api/sales-settings/<tenantId> call successfully returned real dealSize/
+  product data during a live test discovery run against dvsc.)
 Use ONLY as calibration. Never let settings override `tenants.json` scope.
 Use:
 - companyName / mainIndustry / customerTypes → in-scope buyer check
@@ -363,7 +368,7 @@ Before writing any lead, the agent MUST call the local estimator to compute tick
 
 ```text
 1. Fetch tenant settings:
-   GET /api/settings?tenantId=<tenantId>&brand=<brand>
+   GET /api/sales-settings/<brand>?tenantId=<tenantId>
 
 2. Call the local estimator:
    estimatePurchase(settings, lead, brand)
