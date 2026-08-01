@@ -78,13 +78,34 @@ including the new `dvsc-discovery`/`dvsc-enrichment` entries (both
 `dvsc`'s `tenants.json` entry was scaffolded with `status: "paused"` and
 both `discovery.enabled`/`enrichment.enabled` set to `false`. This mirrors
 this repo's own established pattern (and salesleadgenerator's own cadence
-feature, which defaults new cadences to disabled) and is deliberate: DVSC
-currently has zero real leads in salesleadgenerator and its Sales Settings
-`dealSize` bands are not yet configured there, so an agent run today would
-have nothing real to calibrate against. This was a judgment call made
-during implementation, not an explicit instruction -- flip both `enabled`
-flags to `true` and re-run `node config/cron-generator.js` once DVSC's
-Sales Settings are populated and the tenant is ready to go live.
+feature, which defaults new cadences to disabled) and was a judgment call
+made during implementation, not an explicit instruction -- flip both
+`enabled` flags to `true` and re-run `node config/cron-generator.js` when
+the tenant is ready to go live.
+
+Two of the original blockers to that are now resolved:
+- DVSC's Sales Settings (`dealSize`, product lines, buyer roles) are now
+  populated in salesleadgenerator's live `company_settings` collection --
+  set via `PUT /api/sales-settings/dvsc` after researching DVSC's real
+  sponsorship inventory and current sponsors (Tranzit-Food, Primavera
+  Víz). The `dealSize` bands and per-product pricing are disclosed
+  estimates (no public DVSC rate card exists), not confirmed real
+  figures -- see that settings doc's own `notes` field for the full
+  disclosure and sourcing.
+- `.env.dvsc` now holds real credentials: per explicit owner instruction,
+  DVSC shares the same `SLG_API_KEY` and the same MongoDB Atlas
+  cluster/database as `cogmap`/`seyu` (confirmed by host comparison, not
+  guessed -- `COGMAP_MONGODB_URI`/`SEYU_MONGODB_URI`/salesleadgenerator's
+  own `MONGODB_URI` all resolve to the same `sales.8wytusk.mongodb.net`
+  cluster). `dvsc_leads` is simply a distinct collection within that same
+  shared database, the same collection-per-brand pattern `cogmap`
+  (`leads`) and `seyu` (`seyu_leads`) already use.
+
+Still open before a real run: this whole `dvsc` change (including the
+`schema-mapper.js` fixes below, which also affect `cogmap`/`seyu`) is
+still only on the `feature/dvsc-tenant-plus-claude-support` branch, not
+merged to `main` -- see the open question in §1 about which config source
+OpenClaw's live cron execution actually reads.
 
 ## 4. Pre-existing `schema-mapper.js` bugs fixed while adding dvsc
 
@@ -146,7 +167,54 @@ Claude-native prompt format was out of scope here -- flag that as its own
 piece of work if/when a Claude-based runtime is actually built and needs
 its own prompt shape rather than reusing the OpenClaw one.
 
-## 6. Committed secret -- needs rotation
+## 6. Live test discovery run against dvsc (2026-08-01)
+
+Ran a real, manual discovery pass end to end for the `dvsc` tenant --
+real research (companies verified via web search, not invented), 5 real
+leads POSTed to the live salesleadgenerator API, all verified via
+`GET /api/leads?brand=dvsc&limit=1000` afterward. Confirms the whole
+pipeline actually works for dvsc: `SLG_API_KEY` authenticates, the shared
+Mongo cluster accepts writes to `dvsc_leads`, and `ticketSizeEstimate` is
+computed correctly from the `dealSize` bands set in Sales Settings
+(`expected: 150000 EUR` for Enterprise-tier leads, `60000 EUR` for the one
+Large-tier lead, both matching the configured bands exactly; `method:
+"tier_band"`, `confidence: "low"` since no `largestWon` is configured --
+correct, since none was ever set).
+
+Two real findings from running it, not visible from reading the code alone:
+
+- **The `GET /api/settings?tenantId=...` reference in every prompt file's
+  "Settings Calibration"/"Local Ticket-Size Estimator" section was wrong.**
+  `/api/settings` (`app/api/settings/route.ts` in salesleadgenerator) is a
+  completely unrelated route -- pipeline-weights/stale-thresholds/
+  forecast-calibration config, with no brand or tenantId parameter at all.
+  The real per-brand endpoint, confirmed working by actually calling it
+  successfully all session, is `GET /api/sales-settings/<brand>?tenantId=<tenantId>`.
+  This was a pre-existing bug in `cogmap.md`'s prompts (both discovery and
+  enrichment), which was then faithfully copied into the new `dvsc.md`
+  prompts when they were written from the cogmap template -- not something
+  introduced fresh, but not caught until this pass actually exercised it.
+  Fixed in all 4 files (`prompts/{discovery,enrichment}/{cogmap,dvsc}.md`);
+  `seyu.md` has no equivalent section, so nothing to fix there.
+- **A lead's `ice.ease` value is not actually respected on `POST /api/leads`.**
+  The submitted payload's `ice.ease` is validated for format (integer 1-10)
+  but then silently discarded -- the server always recomputes `ease` itself
+  from `computeEase(body)` (`app/api/leads/route.ts`), which derives it
+  purely from whether `contacts[]`/`address`/`general_contact` are present,
+  not from anything the caller sent. Submitting 5 real, researched
+  companies with real evidence but zero contacts got rejected with a 422
+  quality-gate error (`ease` computed as `1` regardless of the `ice.ease: 4`
+  actually sent) until at least one real contact (a named individual or an
+  honestly-labeled general/departmental channel, not a fabricated person)
+  was added to each. This is arguably correct behavior -- it's what makes
+  `dvsc.md`'s own "Min contacts: 1" requirement actually enforced
+  server-side -- but it isn't documented anywhere in this repo's prompts,
+  and an agent naively trusting its own submitted `ice.ease` value would be
+  surprised by the 422. Worth propagating this note into
+  salesleadgenerator's own `docs/LEAD_ENRICHMENT_GUIDE.md` too, out of
+  scope for this repo specifically.
+
+## 7. Committed secret -- needs rotation
 
 `.env.check` contains a live `VERCEL_OIDC_TOKEN` JWT (Vercel org
 `moldovan`, project `contentcreator`). This predates this change and was
