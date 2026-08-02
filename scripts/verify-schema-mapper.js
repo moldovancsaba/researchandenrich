@@ -17,6 +17,7 @@
 
 const assert = require('assert');
 const SchemaMapper = require('../schema-mapper');
+const { verifyFromIngestResponse } = require('../runtime/verifier/response-based');
 
 let passed = 0;
 function check(label, fn) {
@@ -208,6 +209,43 @@ check("validateForTenant('classscout') rejects an ageRanges value not in the clo
   const payload = mapper.mapToApiPayload('classscout', wrongAge, 'post');
   const result = mapper.validateForTenant('classscout', payload);
   assert.ok(result.errors.some((e) => e.includes('ageRanges')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects a create payload missing category or borough (regression: these were only format-checked, never required-checked)", () => {
+  const { category, borough, ...missingBoth } = sampleProvider;
+  const payload = mapper.mapToApiPayload('classscout', missingBoth, 'post');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('category is required')), result.errors.join('; '));
+  assert.ok(result.errors.some((e) => e.includes('borough is required')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects a patch that explicitly sets image: '' (regression: empty string was exempted from the ImgBB check)", () => {
+  const payload = mapper.mapToApiPayload('classscout', { id: sampleProvider.id, image: '' }, 'put');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('image must be an https ImgBB URL')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') still accepts a patch that OMITS image entirely (leaving the existing image untouched is fine)", () => {
+  const payload = mapper.mapToApiPayload('classscout', { id: sampleProvider.id, phone: '+1 718 555 0199' }, 'put');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.deepStrictEqual(result.errors, []);
+});
+
+// --- runtime/verifier/response-based.js ---
+check('verifyFromIngestResponse does NOT confirm a batch when the API silently dropped an operation (regression: results.length < expectedIds.length used to pass via vacuous .every())', () => {
+  const result = verifyFromIngestResponse({
+    responseBody: { ok: true, results: [{ index: 0, ok: true }] }, // only 1 result back
+    expectedIds: ['prov-a', 'prov-b'], // but 2 operations were submitted
+  });
+  assert.strictEqual(result.confirmed, false);
+});
+
+check('verifyFromIngestResponse confirms a batch when every expected result came back ok', () => {
+  const result = verifyFromIngestResponse({
+    responseBody: { ok: true, results: [{ index: 0, ok: true }, { index: 1, ok: true }] },
+    expectedIds: ['prov-a', 'prov-b'],
+  });
+  assert.strictEqual(result.confirmed, true);
 });
 
 console.log(`\n${passed} check(s) passed.`);

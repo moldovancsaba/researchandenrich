@@ -414,6 +414,12 @@ class SchemaMapper {
     if (!doc.name || (typeof doc.name === 'string' && doc.name.trim() === '')) {
       errors.push('name is required');
     }
+    if (!doc.category) {
+      errors.push(`category is required and must be one of: ${CATEGORIES.join(', ')}`);
+    }
+    if (!doc.borough || (typeof doc.borough === 'string' && doc.borough.trim() === '')) {
+      errors.push('borough is required');
+    }
     if (!doc.neighborhood || (typeof doc.neighborhood === 'string' && doc.neighborhood.trim() === '')) {
       errors.push('neighborhood is required');
     }
@@ -461,7 +467,13 @@ class SchemaMapper {
         }
       }
     }
-    if (doc.image !== undefined && doc.image !== '' && !/^https:\/\/(i\.)?ibb\.co\//.test(doc.image)) {
+    // No exemption for an explicitly-empty string: `image` is hard-required on every
+    // create AND every patch-merge (there is no image-optional path through
+    // /api/ingest) -- a patch that sets image: '' would overwrite an existing valid
+    // image and get rejected server-side, so it must fail local validation too,
+    // the same as any other non-ImgBB value. Only an OMITTED key (undefined) is
+    // fine on a patch (means "leave the existing image alone").
+    if (doc.image !== undefined && !/^https:\/\/(i\.)?ibb\.co\//.test(doc.image)) {
       errors.push(`image must be an https ImgBB URL (i.ibb.co): ${doc.image}`);
     }
   }

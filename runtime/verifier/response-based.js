@@ -17,11 +17,14 @@
  *
  * @param {object} params
  * @param {object} params.responseBody - Parsed JSON body of the POST /api/ingest response: { ok, results: [{index, ok, error?, data?}] }
- * @param {string[]} [params.expectedIds] - The `id` values submitted, in the same order as the operations, for reporting only
+ * @param {string[]} [params.expectedIds] - The `id` values submitted, in the same order as the operations. When
+ *   provided, a `results` array shorter than `expectedIds` (the API silently dropping an operation) fails
+ *   confirmation instead of `.every()` vacuously passing over whatever partial subset did come back.
  * @returns {object} Verification result with confirmed boolean and per-operation detail
  */
 function verifyFromIngestResponse({ responseBody, expectedIds = [] }) {
   const results = Array.isArray(responseBody?.results) ? responseBody.results : [];
+  const expectedCount = expectedIds.length > 0 ? expectedIds.length : results.length;
 
   const perOperation = results.map((r, i) => ({
     index: r.index ?? i,
@@ -33,9 +36,10 @@ function verifyFromIngestResponse({ responseBody, expectedIds = [] }) {
   const confirmedCount = perOperation.filter((r) => r.confirmed).length;
 
   return {
-    confirmed: results.length > 0 && perOperation.every((r) => r.confirmed),
+    confirmed: results.length > 0 && results.length === expectedCount && perOperation.every((r) => r.confirmed),
     confirmedCount,
     totalCount: perOperation.length,
+    expectedCount,
     results: perOperation,
   };
 }
