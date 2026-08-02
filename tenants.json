@@ -13,6 +13,8 @@
       },
       "forbiddenFields": [],
       "iceScoring": true,
+      "schemaFamily": "sales-lead-api",
+      "forecastModel": "deal-size-band",
       "discovery": {
         "prompt": "prompts/discovery/cogmap.md",
         "schedule": {
@@ -45,6 +47,8 @@
       },
       "forbiddenFields": [],
       "iceScoring": true,
+      "schemaFamily": "sales-lead-api",
+      "forecastModel": "pricing-by-company",
       "discovery": {
         "prompt": "prompts/discovery/seyu.md",
         "schedule": {
@@ -77,6 +81,8 @@
       },
       "forbiddenFields": [],
       "iceScoring": true,
+      "schemaFamily": "sales-lead-api",
+      "forecastModel": "deal-size-band",
       "discovery": {
         "prompt": "prompts/discovery/dvsc.md",
         "schedule": {
