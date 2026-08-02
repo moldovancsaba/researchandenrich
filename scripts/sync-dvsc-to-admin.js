@@ -55,7 +55,7 @@ const APP_PAYLOAD = {
   description: 'Business and program research across sports, entertainment, media, and tech',
   apiBase: 'https://salesleadgenerator.vercel.app',
   verifier: 'runtime/verifier/list-based.js',
-  schemaMapper: 'runtime/schema-mapper.js',
+  schemaMapper: 'schema-mapper.js',
   searchEngines: ['seyu-search-router'],
   qualityPipeline: ['DRAFT', 'CHECKED', 'VERIFIED'],
   maxResultsPerRun: 5,

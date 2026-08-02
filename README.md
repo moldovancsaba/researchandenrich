@@ -103,6 +103,25 @@ new tenant paused (`status: "paused"`, both `enabled` flags `false`) until
 its Sales Settings are configured in salesleadgenerator and it's ready to
 go live — the same convention `dvsc` shipped under.
 
+**If the new tenant sells the same shape of thing salesleadgenerator's
+lead schema already models** (the common case — another salesleadgenerator
+brand, same as cogmap/seyu/dvsc), its `tenants.json` entry also needs:
+- `"schemaFamily": "sales-lead-api"`
+- `"forecastModel": "deal-size-band"` or `"pricing-by-company"` — whichever
+  forecast-field shape the new brand's Sales Settings actually use in
+  salesleadgenerator (see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §4a for what
+  each means). Omit `forecastModel` entirely if the new brand uses neither.
+
+That's it — `schema-mapper.js` itself needs **zero code changes** for a new
+sales-lead-api tenant; it dispatches purely on these two config fields, never
+on the tenant's own name. Confirm with `node scripts/verify-schema-mapper.js`
+after adding the entry (it exercises every tenant it finds in `tenants.json`
+automatically — no need to add a new tenant to the script itself). Only a
+tenant selling something schema-mapper.js has never modeled before (a
+different target API/schema entirely, not just a different brand) needs an
+actual code change — see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §4a for how
+`schemaFamily` extends to that case.
+
 ## Per-Tenant Toggles
 
 Each tenant in `tenants.json` has per-operation `enabled` flags:
