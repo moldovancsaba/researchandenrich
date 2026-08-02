@@ -4,7 +4,23 @@
  * Translates generic ContentCreator fields into tenant-specific API payloads.
  * Prevents cross-tenant field contamination by mapping and validating at write time.
  *
- * Current tenants: cogmap, seyu, dvsc
+ * Tenants are declared entirely in tenants.json -- this file never hardcodes
+ * a tenant ID. Two config fields on each tenant object drive all dispatch:
+ *   - `schemaFamily`: which API/schema shape this tenant's payloads follow
+ *     ('sales-lead-api' for the salesleadgenerator-shaped lead schema shared
+ *     by cogmap/seyu/dvsc today; 'program-api' for a ClassScout-shaped
+ *     programs schema, not currently used by any tenant but kept working).
+ *   - `forecastModel` (sales-lead-api tenants only): 'deal-size-band' or
+ *     'pricing-by-company' -- which forecast-field normalization/validation
+ *     applies. A tenant using neither omits this field entirely; no
+ *     forecast-field handling runs for it.
+ *
+ * Onboarding a new tenant that fits an EXISTING schemaFamily (the common
+ * case -- another salesleadgenerator brand) requires ONLY a new entry in
+ * tenants.json with a matching `schemaFamily`/`forecastModel` -- zero
+ * changes to this file. A genuinely new schema shape (a different target
+ * API entirely) needs a new `_map<Family>()`/`_validate<Family>()` pair and
+ * a new `schemaFamily` case below -- still no tenant-ID-specific code.
  */
 
 const fs = require('fs');
@@ -45,7 +61,9 @@ class SchemaMapper {
    * Map a generic ContentCreator record to a tenant-specific API payload.
    * This is the main anti-contamination gate.
    *
-   * Supported tenants: cogmap, seyu, dvsc
+   * Dispatches purely on `tenant.schemaFamily` (tenants.json) -- never on
+   * tenant identity. A new tenant with a matching schemaFamily needs no
+   * change here.
    *
    * @param {string} tenantId
    * @param {object} genericRecord - The record built by the agent
@@ -61,43 +79,38 @@ class SchemaMapper {
       delete payload[field];
     }
 
-    // Tenant-specific field mapping
-    switch (tenantId) {
-      case 'cogmap':
-      case 'seyu':
-      case 'dvsc':
-        return this._mapCogmapSeyu(tenantId, tenant, payload);
-      case 'classscout-api':
+    switch (tenant.schemaFamily) {
+      case 'sales-lead-api':
+        return this._mapSalesLeadApi(tenant, payload);
+      case 'program-api':
         return this._mapClassScout(tenant, payload);
       default:
-        throw new Error(`No mapper defined for tenant: ${tenantId}`);
+        throw new Error(`Tenant '${tenantId}' has no (or an unrecognized) schemaFamily in tenants.json: ${tenant.schemaFamily}`);
     }
   }
 
   /**
-   * CogMap, Seyu, and DVSC share the same lead schema, but with different
-   * forecast-field normalization per tenant. tenantId is passed explicitly
-   * rather than read off `tenant.id` -- tenant objects loaded from
-   * tenants.json never carry an `id` property (a real, previously-latent
-   * bug: `tenant.id === 'cogmap'` was always false, so this method's own
-   * forecast-field normalization below never actually ran for any tenant).
+   * The salesleadgenerator-shaped lead schema, shared by any tenant whose
+   * tenants.json entry declares `schemaFamily: 'sales-lead-api'` (cogmap,
+   * seyu, dvsc today -- a future tenant needs only the same declaration,
+   * not a code change). Forecast-field normalization varies per tenant via
+   * `tenant.forecastModel`, not per hardcoded tenant ID.
    */
-  _mapCogmapSeyu(tenantId, tenant, payload) {
-    // All three tenants now share the same brand field names:
+  _mapSalesLeadApi(tenant, payload) {
+    // All sales-lead-api tenants share the same brand field names:
     // pro_for_organization / con_for_organization
     // Nothing to remap here; keep payload as-is.
 
-    // Do NOT force a board field for cogmap/seyu/dvsc.
+    // Do NOT force a board field for sales-lead-api tenants.
     // The SalesLeadGenerator API routes via `brand`, not `board`.
 
     // Standardize emails and phones
     this._standardizeContacts(payload);
 
-    // Normalize cogmap/dvsc forecast fields if present -- dvsc reuses
-    // cogmap's own deal-size-band model (issue #148 in salesleadgenerator),
-    // so the same recommended_tier/revenue_model/estimated_participants
-    // normalization applies to both.
-    if (tenantId === 'cogmap' || tenantId === 'dvsc') {
+    // 'deal-size-band' tenants (cogmap, dvsc -- dvsc reuses cogmap's own
+    // model per issue #148 in salesleadgenerator) get recommended_tier/
+    // revenue_model/estimated_participants normalization.
+    if (tenant.forecastModel === 'deal-size-band') {
       if (payload.recommended_tier && typeof payload.recommended_tier === 'string') {
         const normalized = payload.recommended_tier.trim().toLowerCase();
         if (!['essential', 'performance', 'elite', 'multiple'].includes(normalized)) {
@@ -125,10 +138,10 @@ class SchemaMapper {
       }
     }
 
-    // Normalize seyu company-specific pricing if present -- dvsc has no
-    // pricingByCompany field of its own (it reuses cogmap's deal-size-band
-    // model above instead), so this branch stays seyu-only.
-    if (tenantId === 'seyu') {
+    // 'pricing-by-company' tenants (seyu today) get pricingByCompany
+    // normalization instead of the deal-size-band fields above -- a tenant
+    // never has both models, per the mutually-exclusive branches here.
+    if (tenant.forecastModel === 'pricing-by-company') {
       if (payload.pricingByCompany && typeof payload.pricingByCompany === 'object') {
         const normalized = {};
         for (const [company, data] of Object.entries(payload.pricingByCompany)) {
@@ -209,16 +222,17 @@ class SchemaMapper {
       }
     }
 
-    // Tenant-specific validation
-    switch (tenantId) {
-      case 'cogmap':
-      case 'seyu':
-      case 'dvsc':
-        this._validateLead(tenantId, tenant, payload, errors);
+    // Schema-family-specific validation -- dispatches on tenant.schemaFamily
+    // (tenants.json), never on tenant identity. See mapToApiPayload() above.
+    switch (tenant.schemaFamily) {
+      case 'sales-lead-api':
+        this._validateLead(tenant, payload, errors);
         break;
-      case 'classscout-api':
+      case 'program-api':
         this._validateProgram(tenant, payload, errors);
         break;
+      default:
+        errors.push(`Tenant '${tenantId}' has no (or an unrecognized) schemaFamily in tenants.json: ${tenant.schemaFamily}`);
     }
 
     return {
@@ -227,7 +241,7 @@ class SchemaMapper {
     };
   }
 
-  _validateLead(tenantId, tenant, payload, errors) {
+  _validateLead(tenant, payload, errors) {
     // Validate contacts
     if (payload.contacts && !Array.isArray(payload.contacts)) {
       errors.push('contacts must be an array');
@@ -263,9 +277,8 @@ class SchemaMapper {
       errors.push(`${conField} must be a string or string[]`);
     }
 
-    // Validate cogmap/dvsc forecast fields -- dvsc reuses cogmap's own
-    // deal-size-band model (see _mapCogmapSeyu above).
-    if (tenantId === 'cogmap' || tenantId === 'dvsc') {
+    // Validate deal-size-band forecast fields (see _mapSalesLeadApi above).
+    if (tenant.forecastModel === 'deal-size-band') {
       const validTiers = ['essential', 'performance', 'elite', 'multiple'];
       const validRevenueModels = ['per_participant', 'revenue_share', 'hybrid'];
       if (payload.recommended_tier && !validTiers.includes(payload.recommended_tier)) {
@@ -337,25 +350,34 @@ class SchemaMapper {
   }
 
   /**
-   * Get the API endpoint for a tenant action
+   * Get the API endpoint for a tenant action. Dispatches on
+   * `tenant.schemaFamily` (tenants.json), never on tenant identity -- a new
+   * sales-lead-api tenant needs no change here. Every action for a
+   * sales-lead-api tenant carries `?brand=${tenantId}` explicitly
+   * (including post/get/put, not just list) -- salesleadgenerator's own
+   * `resolveBrand()` defaults a missing/unrecognized `brand` param to
+   * 'cogmap' rather than erroring, so omitting it here would have silently
+   * written every non-cogmap tenant's leads into cogmap's own collection.
+   * Confirmed directly against the live API (2026-08-02): a real
+   * `POST /api/leads?brand=dvsc` succeeds and writes to dvsc's own
+   * collection; there is no tenant whitelist on salesleadgenerator's side.
    */
   getApiEndpoint(tenantId, action, id = null) {
     const tenant = this.getTenant(tenantId);
     const base = tenant.apiBase;
 
-    switch (tenantId) {
-      case 'cogmap':
-      case 'seyu':
+    switch (tenant.schemaFamily) {
+      case 'sales-lead-api':
         switch (action) {
           case 'list': return `${base}/api/leads?brand=${tenantId}&limit=1000`;
-          case 'get': return `${base}/api/leads/${id}`;
-          case 'post': return `${base}/api/leads`;
-          case 'put': return `${base}/api/leads/${id}`;
+          case 'get': return `${base}/api/leads/${id}?brand=${tenantId}`;
+          case 'post': return `${base}/api/leads?brand=${tenantId}`;
+          case 'put': return `${base}/api/leads/${id}?brand=${tenantId}`;
           case 'health': return `${base}/api/health`;
           case 'stats': return `${base}/api/stats`;
           default: throw new Error(`Unknown action: ${action}`);
         }
-      case 'classscout-api':
+      case 'program-api':
         switch (action) {
           case 'list': return `${base}/api/programs?limit=1000`;
           case 'get': return `${base}/api/programs/${id}`;
@@ -367,7 +389,7 @@ class SchemaMapper {
           default: throw new Error(`Unknown action: ${action}`);
         }
       default:
-        throw new Error(`No endpoint mapping for tenant: ${tenantId}`);
+        throw new Error(`Tenant '${tenantId}' has no (or an unrecognized) schemaFamily in tenants.json: ${tenant.schemaFamily}`);
     }
   }
 
