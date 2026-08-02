@@ -5,41 +5,62 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 ## Repo Layout
 
 ```
-├── agents/contentcreator/       <- agent runtime code (this repo)
-│   ├── app/                       <- Next.js App Router
-│   │   ├── layout.tsx             <- root layout
-│   │   ├── page.tsx               <- landing page
-│   │   ├── admin/
-│   │   │   ├── layout.tsx         <- admin panel layout
-│   │   │   ├── page.tsx           <- admin dashboard
-│   │   │   ├── globals.css
-│   │   │   └── components/
-│   │   │       ├── Providers.tsx
-│   │   │       └── PwaSetup.tsx
-│   │   └── api/                   <- API routes
-│   │       ├── admin/             <- admin management endpoints
-│   │       │   ├── apps/
-│   │       │   ├── tenants/
-│   │       │   └── queue/
-│   │       ├── health/route.ts
-│   │       └── leads/route.ts
-│   ├── lib/                       <- shared utilities
-│   │   ├── mongodb.ts             <- MongoDB connection helper
-│   │   └── api-auth.ts            <- API key authentication
-│   ├── prompts/                   <- prompt files (discovery/enrichment)
-│   │   ├── discovery/
-│   │   └── enrichment/
-│   ├── tenants.json               <- tenant configs (incl. per-operation enabled flags)
-│   ├── schema-mapper.js           <- schema mapping + cross-tenant guards
-│   ├── runtime/                   <- shared runtime (cache, HTTP client, retry)
-│   ├── workers/*/                 <- per-tenant worker YAML configs
-│   ├── config/
-│   │   ├── cron-generator.js      <- generates cron.yaml from tenants.json + workers
-│   │   └── cron.yaml              <- generated cron schedule
-│   ├── apps.yaml                  <- app definitions
-│   ├── config/apps/               <- per-app config (researchandenrich.yaml)
-│   ├── vercel.json                <- Vercel config (empty, auto-detects Next.js)
-│   └── .env.cogmap / .env.seyu / .env.dvsc  <- protected credentials (600 permissions)
+├── app/                       <- Next.js App Router (the /admin dashboard)
+│   ├── layout.tsx                <- root layout
+│   ├── page.tsx                  <- landing page
+│   ├── admin/
+│   │   ├── layout.tsx            <- admin panel layout
+│   │   ├── page.tsx              <- admin dashboard (Apps/Tenants/Queue tabs)
+│   │   ├── queue/page.tsx        <- full queue page
+│   │   ├── globals.css
+│   │   └── components/
+│   │       ├── Providers.tsx
+│   │       └── PwaSetup.tsx
+│   └── api/                      <- API routes
+│       ├── admin/                <- admin management endpoints (apps/tenants/queue --
+│       │   │                        Mongo-backed, see "two unsynced config sources" below)
+│       │   ├── apps/
+│       │   ├── tenants/
+│       │   └── queue/
+│       ├── health/route.ts
+│       └── leads/route.ts        <- local stub/mock only -- the real leads API this
+│                                     pipeline writes to lives in salesleadgenerator
+├── lib/                       <- shared utilities (for the /admin app above)
+│   ├── mongodb.ts                <- MongoDB connection helper
+│   └── api-auth.ts               <- API key authentication
+├── prompts/                   <- prompt files (discovery/enrichment), OpenClaw-format
+│   ├── discovery/
+│   └── enrichment/
+├── tenants.json               <- tenant configs (schemaFamily/forecastModel,
+│                                  per-operation enabled flags)
+├── schema-mapper.js           <- schema mapping + cross-tenant guards (repo root --
+│                                  not under runtime/, see apps.yaml's schemaMapper: field)
+├── runtime/
+│   ├── verifier/list-based.js    <- list-based verification (GET-by-ID is unreliable,
+│   │                                 per its own doc comment)
+│   └── shared/                   <- cache, HTTP client, retry helpers
+├── workers/*/                 <- per-tenant worker YAML configs (discovery.yaml,
+│                                  enrichment.yaml)
+├── config/
+│   ├── cron-generator.js         <- generates cron.yaml from tenants.json + workers
+│   ├── cron.yaml                 <- generated cron schedule (do not hand-edit)
+│   ├── healthcheck.yaml          <- health-check endpoint defaults
+│   └── retry-policy.yaml         <- global retry/timeout/logging defaults
+├── scripts/
+│   ├── verify-schema-mapper.js   <- schema-mapper.js regression check (no test
+│   │                                 framework configured in package.json)
+│   └── sync-dvsc-to-admin.js     <- syncs a static-file tenant into the Mongo-backed
+│                                     admin API (not yet run against a live deployment)
+├── search-router/              <- the web-search MCP server prompts invoke
+│   ├── agent-runtime.json
+│   ├── bin/run-router-search.sh
+│   └── seyu-search-router/       <- self-contained npm package, own package.json/tests
+├── apps.yaml                  <- app definitions
+├── .mcp.json                  <- declares search-router as a Claude-Code-discoverable
+│                                  MCP stdio server (separate integration path from the
+│                                  OpenClaw prompts' own hardcoded AgentFinder invocation)
+├── vercel.json                <- Vercel config (empty, auto-detects Next.js)
+└── .env.cogmap / .env.seyu / .env.dvsc  <- gitignored credential files
 ```
 
 See `docs/RUNTIME_ARCHITECTURE_NOTES.md` for details on this repo's two unsynced
@@ -147,8 +168,8 @@ Each tenant in `tenants.json` has per-operation `enabled` flags:
 
 `dvsc` ships paused/disabled by default. Its Sales Settings (dealSize bands,
 product lines) are now configured in salesleadgenerator as disclosed
-estimates (see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §6), and a live test run
-confirmed the full discovery→lead→ticket-size pipeline works end to end. It
+estimates (see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §3), and a live test run
+(§6) confirmed the full discovery→lead→ticket-size pipeline works end to end. It
 stays paused until `.env.dvsc` has real credentials (see New Agent
 Onboarding above) and someone makes the explicit decision to flip both
 `enabled` flags to `true` and re-run `node config/cron-generator.js`.
