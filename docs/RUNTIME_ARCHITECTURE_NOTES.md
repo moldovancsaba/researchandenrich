@@ -150,6 +150,60 @@ Verified via an ad-hoc inline Node script exercising `mapToApiPayload`/
 repo to add a permanent regression test to -- `package.json` only defines
 `dev`/`build`/`start`/`lint`).
 
+## 4a. `schema-mapper.js` de-hardcoded, 2026-08-02 -- tenant IDs never appear in code anymore
+
+The bugs in §4 were fixed at the value level (correct field names, correct
+types) but the *structure* was left hardcoded: `mapToApiPayload()`,
+`validateForTenant()`, and `getApiEndpoint()` all switched on the literal
+tenant ID (`case 'cogmap': case 'seyu': case 'dvsc':`). This is exactly
+what let a real bug ship silently: `getApiEndpoint()`'s switch never had a
+`dvsc` case at all, so `getApiEndpoint('dvsc', 'post')` threw
+`"No endpoint mapping for tenant: dvsc"` the moment dvsc's discovery/
+enrichment prompts tried to use it -- caught only when a live cron run
+failed and got traced back here, not by anything in this repo's own
+tooling.
+
+**The fix**: two new declarative fields on each tenant in `tenants.json` --
+`schemaFamily` (`'sales-lead-api'` for cogmap/seyu/dvsc; `'program-api'`
+preserved for the Mongo-side `classscout-api` tenant referenced in §1, even
+though it has no static-file entry to exercise it) and `forecastModel`
+(`'deal-size-band'` for cogmap/dvsc, `'pricing-by-company'` for seyu, per
+the existing forecast-field split documented in §4). `schema-mapper.js` now
+dispatches on `tenant.schemaFamily`/`tenant.forecastModel` everywhere --
+grep the file for `tenantId ===` or `case 'cogmap'` and it comes back
+empty. **Onboarding a new tenant that reuses the sales-lead-api schema
+(the common case) now requires only a `tenants.json` entry with a matching
+`schemaFamily` -- zero changes to `schema-mapper.js`.**
+
+Also fixed while in this file: `getApiEndpoint()`'s `post`/`get`/`put`
+actions never included `?brand=${tenantId}` at all (only `list` did) --
+harmless for cogmap only because salesleadgenerator's own `resolveBrand()`
+defaults a missing `brand` param to `'cogmap'` rather than erroring, so a
+real seyu or dvsc POST through this path would have silently written into
+cogmap's own collection instead. Confirmed directly against the live API
+(not assumed): `POST /api/leads?brand=dvsc` succeeds today and writes to
+dvsc's own collection -- there is no tenant whitelist on
+salesleadgenerator's side, contrary to an earlier (incorrect) diagnosis
+that attributed the dvsc POST failure to a brand whitelist on the app side.
+Every action for every sales-lead-api tenant now carries `?brand=` explicitly.
+
+Also: `apps.yaml` and `scripts/sync-dvsc-to-admin.js`'s `APP_PAYLOAD` both
+declared `schemaMapper: runtime/schema-mapper.js`, but the real file has
+always lived at the repo root (`schema-mapper.js`) -- `runtime/` only
+contains `runtime/verifier/` and `runtime/shared/`. Fixed both references
+to the real path rather than moving the file (nothing in this repo
+actually `require()`s `schema-mapper.js` today -- confirmed via a
+repo-wide grep -- so moving it was unnecessary risk for zero benefit).
+
+**§4's "no test suite exists" is now out of date**: `scripts/verify-schema-mapper.js`
+is a plain, dependency-free Node script (`node scripts/verify-schema-mapper.js`,
+no framework, matching this repo's existing `scripts/*.js` convention) that
+exercises `getApiEndpoint`/`mapToApiPayload`/`validateForTenant` against
+every real tenant in `tenants.json`, plus a synthetic tenant that is
+deliberately *not* in `tenants.json` to prove the "zero code change for a
+new same-family tenant" claim above is real, not aspirational. Run it after
+any change to `schema-mapper.js` or `tenants.json`.
+
 ## 5. Claude Code agent compatibility -- minimal, honest scope
 
 Every existing prompt file (`prompts/{discovery,enrichment}/{cogmap,seyu}.md`)
