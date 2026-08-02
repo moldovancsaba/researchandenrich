@@ -288,4 +288,27 @@ Two real findings from running it, not visible from reading the code alone:
 `moldovan`, project `contentcreator`). This predates this change and was
 not modified or used here. **This token should be rotated and `.env.check`
 either removed from the repo or added to `.gitignore`** -- flagging it here
+
+## 8. `docs/LLD.md` added, `/api/admin/*` has zero real auth -- 2026-08-02
+
+A new `docs/LLD.md` -- a whole-repo, implementation-depth module map (every
+static config file's real schema, `schema-mapper.js`'s full method list,
+the `runtime/`/`search-router/`/`scripts/` internals, and the `/admin`
+Next.js app's routes/pages) -- sits one level below this document. Written
+while auditing this repo's docs for accuracy alongside a parallel
+salesleadgenerator documentation pass; produced no other findings against
+README.md/this document beyond what's already recorded above and in
+README.md's own "Repo Layout" fix (the tree was missing `search-router/`,
+`scripts/`, `runtime/verifier/`, and had a fictional `agents/contentcreator/`
+wrapper and a nonexistent `config/apps/researchandenrich.yaml` -- all fixed).
+
+**Real, live finding surfaced while writing the LLD's `/admin` section**:
+`lib/api-auth.ts`'s `requireApiKey()` is a permanently-disabled no-op --
+`return null` unconditionally -- so every `/api/admin/*` route (apps,
+tenants, queue) has **zero actual authentication** in the deployed app,
+despite every caller (the admin UI, `scripts/sync-dvsc-to-admin.js`)
+sending an API key as if enforcement existed. Filed as issue #3
+(priority p1) rather than fixed here, since a documentation pass isn't the
+right place to change security-sensitive auth code without a dedicated
+review. See `docs/LLD.md` §8.2 for the full writeup.
 so the finding has a durable home beyond chat.
