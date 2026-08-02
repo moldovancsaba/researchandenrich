@@ -1,0 +1,14 @@
+tenant: classscout
+operation: discovery
+prompt: prompts/discovery/classscout.md
+schedule:
+  kind: every
+  everyMs: 2700000
+retry:
+  maxAttempts: 3
+  backoffMs: 5000
+timeoutMs: 300000
+dependencies: []
+healthCheck:
+  endpoint: GET /api/ingest
+  expectedStatus: 200

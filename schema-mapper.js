@@ -8,8 +8,9 @@
  * a tenant ID. Two config fields on each tenant object drive all dispatch:
  *   - `schemaFamily`: which API/schema shape this tenant's payloads follow
  *     ('sales-lead-api' for the salesleadgenerator-shaped lead schema shared
- *     by cogmap/seyu/dvsc today; 'program-api' for a ClassScout-shaped
- *     programs schema, not currently used by any tenant but kept working).
+ *     by cogmap/seyu/dvsc today; 'program-api' for classscout's real
+ *     `POST /api/ingest` batch-operations contract, matching its Provider
+ *     Zod schema at classscout's `src/lib/curator/providerSchema.ts`).
  *   - `forecastModel` (sales-lead-api tenants only): 'deal-size-band' or
  *     'pricing-by-company' -- which forecast-field normalization/validation
  *     applies. A tenant using neither omits this field entirely; no
@@ -21,6 +22,18 @@
  * changes to this file. A genuinely new schema shape (a different target
  * API entirely) needs a new `_map<Family>()`/`_validate<Family>()` pair and
  * a new `schemaFamily` case below -- still no tenant-ID-specific code.
+ *
+ * program-api note: unlike sales-lead-api, classscout has ONE endpoint
+ * (`POST /api/ingest`) for both create and patch -- the HTTP verb never
+ * changes, only the JSON body's `operations[].action`. `mapToApiPayload`
+ * therefore takes a third `action` parameter ('post' for discovery/create,
+ * 'put' for enrichment/patch) so it can build the right operation envelope;
+ * sales-lead-api ignores this parameter entirely (its two HTTP verbs map
+ * to two different URLs, decided by the caller, not by the payload shape).
+ * classscout's ingest credential also has no readable list/get endpoint
+ * (`getApiEndpoint('classscout', 'list'|'get')` throws) -- verification
+ * uses `runtime/verifier/response-based.js` against the POST response's
+ * own per-operation `{ok, error?}` results, not a re-fetch.
  */
 
 const fs = require('fs');
@@ -67,9 +80,12 @@ class SchemaMapper {
    *
    * @param {string} tenantId
    * @param {object} genericRecord - The record built by the agent
-   * @returns {object} tenant-specific payload ready for POST/PUT
+   * @param {'post'|'put'} [action='post'] - 'post' for discovery/create, 'put' for
+   *   enrichment/patch. Only consulted by program-api tenants (see class docblock);
+   *   sales-lead-api ignores it.
+   * @returns {object} tenant-specific payload ready to send as the POST/PUT body
    */
-  mapToApiPayload(tenantId, genericRecord) {
+  mapToApiPayload(tenantId, genericRecord, action = 'post') {
     const tenant = this.getTenant(tenantId);
     const payload = { ...genericRecord };
 
@@ -83,7 +99,7 @@ class SchemaMapper {
       case 'sales-lead-api':
         return this._mapSalesLeadApi(tenant, payload);
       case 'program-api':
-        return this._mapClassScout(tenant, payload);
+        return this._mapClassScout(tenant, payload, action);
       default:
         throw new Error(`Tenant '${tenantId}' has no (or an unrecognized) schemaFamily in tenants.json: ${tenant.schemaFamily}`);
     }
@@ -176,24 +192,88 @@ class SchemaMapper {
   }
 
   /**
+   * classscout's real Provider shape (`curatedProviderSchema` in classscout's
+   * `src/lib/curator/providerSchema.ts`) -- NOT the flat program/lead shape
+   * any prior classscout integration attempt used. Notably:
+   *   - `category` is one of exactly 4 values (Classes/Camps/Birthday
+   *     Parties/Drop-In Activities) -- the PROGRAM FORMAT, not the subject.
+   *     Subject/activity ("Sports", "Art", "STEM", ...) belongs in the
+   *     free-text `activityTypes` array instead.
+   *   - `ageRanges` is a closed 5-bucket enum with an EN DASH character
+   *     ("0–2", "3–5", "6–8", "9–12", "Teens"), not raw
+   *     age_min/age_max numbers.
+   *   - `image` and `website` are REQUIRED, non-empty, and validated
+   *     (`image` must be an https ImgBB URL; `website` must be a valid URL)
+   *     on every create/upsert AND on every patch-merge -- there is no
+   *     image-optional path through `/api/ingest`. A discovery record with
+   *     no sourced-and-uploaded ImgBB image cannot be written; see the
+   *     discovery prompt's Image Sourcing section.
+   *   - `id` must match `/^prov-[a-z0-9-]+$/`.
    */
-  _mapClassScout(tenant, payload) {
-    // Remove any lead-specific fields that shouldn't be in programs
-    const leadOnlyFields = [
-      'pro_for_organization', 'con_for_organization',
-      'decision_maker_name', 'decision_maker_title', 'decision_maker_contact',
-      'contact_phone', 'iceScore', 'sortOrder', 'ice', 'kanbanColumn',
-      'entity_name', 'name', 'board'
-    ];
-
-    for (const field of leadOnlyFields) {
-      delete payload[field];
+  _mapClassScout(tenant, payload, action = 'post') {
+    this._standardizeContacts(payload);
+    if (payload.email && typeof payload.email === 'string') {
+      payload.email = payload.email.toLowerCase().trim();
+    }
+    if (Array.isArray(payload.contactLinks)) {
+      for (const link of payload.contactLinks) {
+        if (link && link.type === 'email' && typeof link.value === 'string') {
+          link.value = link.value.toLowerCase().trim();
+        }
+      }
     }
 
-    // Standardize contacts if present
-    this._standardizeContacts(payload);
+    if (action === 'put') {
+      // Enrichment: only-changed fields, merged server-side against the
+      // existing (already-valid) provider document by `provider.patch`.
+      const { id, ...patch } = payload;
+      return {
+        operations: [
+          { resource: 'provider', action: 'patch', id, patch },
+        ],
+      };
+    }
 
-    return payload;
+    // Discovery: a brand-new provider document, defaults filled in for
+    // fields the research agent has no factual basis to report (editorial
+    // fields like `rating`/`reviewCount`/`badges` are never invented here --
+    // classscout's own moderation/curation loop owns those).
+    const provider = {
+      id: payload.id,
+      name: payload.name,
+      category: payload.category,
+      borough: payload.borough,
+      neighborhood: payload.neighborhood,
+      address: payload.address,
+      activityTypes: payload.activityTypes || [],
+      ageRanges: payload.ageRanges || [],
+      dayTimeTags: payload.dayTimeTags || [],
+      pricePerClass: typeof payload.pricePerClass === 'number' ? payload.pricePerClass : 0,
+      shortDescription: payload.shortDescription,
+      longDescription: payload.longDescription,
+      rating: 0,
+      reviewCount: 0,
+      badges: [],
+      image: payload.image,
+      email: payload.email || '',
+      website: payload.website,
+      phone: payload.phone || '',
+    };
+    if (Array.isArray(payload.contactLinks) && payload.contactLinks.length > 0) {
+      provider.contactLinks = payload.contactLinks;
+    }
+    if (Array.isArray(payload.sourceUrls) && payload.sourceUrls.length > 0) {
+      provider.sourceUrls = payload.sourceUrls;
+    }
+    if (Array.isArray(payload.tags) && payload.tags.length > 0) {
+      provider.tags = payload.tags;
+    }
+
+    return {
+      operations: [
+        { resource: 'providers', action: 'upsertMany', documents: [provider] },
+      ],
+    };
   }
 
   /**
@@ -296,40 +376,93 @@ class SchemaMapper {
     }
   }
 
+  /**
+   * Validates a `_mapClassScout`-produced ingest envelope against classscout's
+   * real Provider contract -- a lightweight mirror of `curatedProviderSchema`
+   * (classscout's `src/lib/curator/providerSchema.ts`), NOT re-implementing
+   * every Zod rule (long text-quality checks like `validatePublicDescription`
+   * stay authoritative server-side). Catches the mistakes a research agent is
+   * actually likely to make: wrong category vocabulary, wrong age-range
+   * format, a missing/invalid image, an id that doesn't match classscout's
+   * required slug shape.
+   */
   _validateProgram(tenant, payload, errors) {
-    // ClassScout programs use different field names than leads
-    // Validate core program fields
-    if (!payload.name || (typeof payload.name === 'string' && payload.name.trim() === '')) {
-      errors.push('Program name is required');
-    }
-    if (!payload.provider || (typeof payload.provider === 'string' && payload.provider.trim() === '')) {
-      errors.push('Provider is required');
+    const CATEGORIES = ['Classes', 'Camps', 'Birthday Parties', 'Drop-In Activities'];
+    const AGE_RANGES = ['0–2', '3–5', '6–8', '9–12', 'Teens'];
+    const DAY_TAGS = ['Weekday', 'Weekend', 'Morning', 'Afternoon', 'Evening', 'After-school'];
+
+    const op = payload.operations && payload.operations[0];
+    if (!op) {
+      errors.push('program-api payload must contain operations[0]');
+      return;
     }
 
-    // Validate age fields
-    const ageMin = payload.age_min;
-    const ageMax = payload.age_max;
-    if (ageMin !== undefined && ageMax !== undefined) {
-      const min = Number(ageMin);
-      const max = Number(ageMax);
-      if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < 0 || min > max) {
-        errors.push('age_min and age_max must be valid numbers with age_min <= age_max');
+    if (op.action === 'patch') {
+      const doc = op.patch || {};
+      if (!op.id || typeof op.id !== 'string' || !/^prov-[a-z0-9-]+$/.test(op.id)) {
+        errors.push(`patch id must match /^prov-[a-z0-9-]+$/: ${op.id}`);
+      }
+      this._validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS);
+      return;
+    }
+
+    // create (providers.upsertMany)
+    const doc = (op.documents && op.documents[0]) || {};
+    if (!doc.id || typeof doc.id !== 'string' || !/^prov-[a-z0-9-]+$/.test(doc.id)) {
+      errors.push(`id must match /^prov-[a-z0-9-]+$/: ${doc.id}`);
+    }
+    if (!doc.name || (typeof doc.name === 'string' && doc.name.trim() === '')) {
+      errors.push('name is required');
+    }
+    if (!doc.neighborhood || (typeof doc.neighborhood === 'string' && doc.neighborhood.trim() === '')) {
+      errors.push('neighborhood is required');
+    }
+    if (!doc.address || (typeof doc.address === 'string' && doc.address.length < 8)) {
+      errors.push('address is required (min 8 chars)');
+    }
+    if (!Array.isArray(doc.activityTypes) || doc.activityTypes.length < 1) {
+      errors.push('activityTypes must be a non-empty array');
+    }
+    if (!doc.shortDescription || doc.shortDescription.length < 10) {
+      errors.push('shortDescription must be at least 10 characters');
+    }
+    if (!doc.longDescription || doc.longDescription.length < 40) {
+      errors.push('longDescription must be at least 40 characters');
+    }
+    if (!doc.image || !/^https:\/\/(i\.)?ibb\.co\//.test(doc.image)) {
+      errors.push('image is required and must be an https ImgBB URL (i.ibb.co) -- source and upload an official photo before writing; do not invent a placeholder');
+    }
+    if (!doc.website) {
+      errors.push('website is required and must be a valid URL');
+    } else {
+      try { new URL(doc.website); } catch { errors.push(`website must be a valid URL: ${doc.website}`); }
+    }
+    this._validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS);
+  }
+
+  _validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS) {
+    if (doc.category !== undefined && !CATEGORIES.includes(doc.category)) {
+      errors.push(`category must be one of: ${CATEGORIES.join(', ')} (this is the program FORMAT, not the subject -- subjects like "Sports"/"Art" belong in activityTypes)`);
+    }
+    if (doc.borough !== undefined && (typeof doc.borough !== 'string' || doc.borough.trim() === '')) {
+      errors.push('borough must be a non-empty string');
+    }
+    if (Array.isArray(doc.ageRanges)) {
+      for (const range of doc.ageRanges) {
+        if (!AGE_RANGES.includes(range)) {
+          errors.push(`ageRanges entry not in the closed vocabulary (${AGE_RANGES.join(', ')}): ${range}`);
+        }
       }
     }
-
-    // Validate pricing
-    if (payload.pricing !== undefined && typeof payload.pricing !== 'object') {
-      errors.push('pricing must be an object');
+    if (Array.isArray(doc.dayTimeTags)) {
+      for (const tag of doc.dayTimeTags) {
+        if (!DAY_TAGS.includes(tag)) {
+          errors.push(`dayTimeTags entry not in the closed vocabulary (${DAY_TAGS.join(', ')}): ${tag}`);
+        }
+      }
     }
-
-    // Validate schedule
-    if (payload.schedule !== undefined && !Array.isArray(payload.schedule)) {
-      errors.push('schedule must be an array');
-    }
-
-    // Validate phone_or_email
-    if (!payload.phone_or_email || (typeof payload.phone_or_email === 'string' && payload.phone_or_email.trim() === '')) {
-      errors.push('phone_or_email is required');
+    if (doc.image !== undefined && doc.image !== '' && !/^https:\/\/(i\.)?ibb\.co\//.test(doc.image)) {
+      errors.push(`image must be an https ImgBB URL (i.ibb.co): ${doc.image}`);
     }
   }
 
@@ -378,14 +511,20 @@ class SchemaMapper {
           default: throw new Error(`Unknown action: ${action}`);
         }
       case 'program-api':
+        // classscout has ONE real write endpoint for both create and patch --
+        // `POST /api/ingest` -- the operation type lives in the request body
+        // (see `_mapClassScout`'s action-dependent envelope), not the URL.
+        // There is no ingest-credential-readable list/get endpoint (the
+        // readable routes are staff-session-gated or publish-status-filtered)
+        // -- 'list'/'get' throw here rather than pointing at a URL the agent
+        // could call and be misled by a false-negative/false-positive.
         switch (action) {
-          case 'list': return `${base}/api/programs?limit=1000`;
-          case 'get': return `${base}/api/programs/${id}`;
-          case 'post': return `${base}/api/programs`;
-          case 'put': return `${base}/api/programs/${id}`;
-          case 'health': return `${base}/api/health`;
-          case 'stats': return `${base}/api/stats`;
-          case 'boroughs': return `${base}/api/boroughs`;
+          case 'post': return `${base}/api/ingest`;
+          case 'put': return `${base}/api/ingest`;
+          case 'health': return `${base}/api/ingest`;
+          case 'list':
+          case 'get':
+            throw new Error(`program-api has no ingest-credential-readable '${action}' endpoint -- verify writes via the POST response itself (runtime/verifier/response-based.js), not a re-fetch`);
           default: throw new Error(`Unknown action: ${action}`);
         }
       default:

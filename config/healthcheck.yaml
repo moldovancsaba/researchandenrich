@@ -8,10 +8,13 @@ leadsHealthCheck:
   expectedStatus: 200
   maxResponseTimeMs: 5000
 
-# Program research tenants use programs list endpoint
-programsHealthCheck:
+# classscout (program-api schemaFamily) uses its own ingest capability-discovery
+# endpoint -- there is no /api/programs on classscout's real API (that was a
+# placeholder from an earlier, torn-out integration attempt). Auth is
+# Authorization: Bearer <INGEST_API_KEY>, not the x-api-key header used above.
+classscoutHealthCheck:
   method: GET
-  endpointTemplate: "/api/programs?limit=1"
+  endpointTemplate: "/api/ingest"
   expectedStatus: 200
   maxResponseTimeMs: 5000
 

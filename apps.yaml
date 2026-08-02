@@ -18,3 +18,19 @@ apps:
     healthCheckTemplate: "GET /api/leads?brand={{tenant}}&limit=1"
     maxResultsPerRun: 5
     requireDecisionMaker: true
+
+  # A separate app: classscout targets a structurally different API (classscout's own
+  # POST /api/ingest batch-operations endpoint, not salesleadgenerator's /api/leads), so
+  # it does not share the researchandenrich app's verifier/healthCheckTemplate above.
+  # schemaMapper.js is still the shared file -- it dispatches per-tenant on schemaFamily
+  # ('program-api' here), same pattern as the researchandenrich app.
+  classscout:
+    appId: classscout
+    displayName: ClassScout
+    description: NYC kids-activity provider research (classes, camps, birthday parties, drop-ins) for classscout.ai's catalog
+    tenants: [classscout]
+    verifier: runtime/verifier/response-based.js
+    schemaMapper: schema-mapper.js
+    healthCheckTemplate: "GET /api/ingest"
+    maxResultsPerRun: 5
+    requireDecisionMaker: false

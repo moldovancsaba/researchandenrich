@@ -49,6 +49,28 @@ source of truth, that requires someone with full git history and/or direct
 knowledge of the live OpenClaw deployment, not another guess from this
 sandbox.
 
+**Update, full history since recovered**: a later session with full git
+history (not a shallow clone) traced the `classscout-api` Mongo-side leftover
+precisely -- see the "classscout" section added to this doc below. Short
+version: it originated from a real, complete classscout tenant integration
+that existed in this repo's very first commit, torn out ~20 hours later
+(sales-lead-repositioning), with the admin webapp's `classscout-api` special
+case surviving only because it lived on a not-yet-merged sibling branch at
+teardown time. The **static side** of the two-source drift is now resolved
+for classscout specifically: a real `classscout` tenant/app now exists in
+`tenants.json`/`apps.yaml`/`workers/classscout/`, targeting classscout's
+*actual* API (`POST /api/ingest`), not the placeholder `/api/programs` the
+old `classscout-api` fragments assumed. The **Mongo-admin side**
+(`app/api/admin/queue/route.ts`'s `appId === 'classscout-api'` special case)
+is untouched -- it reads a different tenant id (`classscout-api`, not the
+new `classscout`) from a different config source (Mongo, not these static
+files), so it does not reflect or conflict with the new tenant, but it also
+was not cleaned up as part of this work (a separate, still-open question:
+whether to sync the new `classscout` tenant into the Mongo-backed admin
+dashboard too, or retire the `classscout-api` special case as dead code from
+the abandoned attempt -- left for the repo owner to decide, not assumed
+here).
+
 ## 2. `config/cron-generator.js` was broken -- fixed here
 
 The script's own top-of-file JSDoc comment contained a literal `*/`
