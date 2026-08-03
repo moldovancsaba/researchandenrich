@@ -140,6 +140,26 @@ missing or non-ImgBB `image` URL — there is no image-optional path).
    revisit on a future run — do not fabricate or substitute an unrelated
    image just to satisfy the field.
 
+### Server-side image UNIQUENESS is enforced (confirmed live, 2026-08-03)
+classscout's ingest validation rejects a write whose `image` URL is already
+used by a different provider, with a 422:
+`"duplicate image rejected: provider <id> already uses this image"`.
+This was discovered when ImgBB itself had a sustained real outage
+(`{"error":{"message":"Imgbb is currently down for maintenance."}}` from
+`POST https://api.imgbb.com/1/upload` for 40+ minutes) and a single
+repo-owner-approved generic stock photo
+(`https://i.ibb.co/20tRn2Dh/520384eb396c.jpg`) was tried as a stand-in for
+several providers at once — the first write succeeded
+(`prov-riverside-clay-tennis-association-rcta-414059ab`), and every
+subsequent attempt to reuse that same URL for a different provider was
+rejected outright. **This means a shared/generic fallback image can never
+be reused across more than one provider, ever — it is not a viable
+substitute for real per-provider photos at any scale beyond one.** Every
+provider needs its own genuinely distinct, real, source-backed photo; if
+ImgBB is down and no other route to a distinct hosted image exists, treat
+that provider as blocked (like "no sourceable image") rather than reusing
+any already-used URL.
+
 ## Coverage Balancing
 
 Prioritize research where classscout's catalog is thinnest, WITHIN the
