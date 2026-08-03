@@ -82,3 +82,29 @@ schedule:
       maxAttempts: 3
       backoffMs: 5000
 
+  - worker: classscout-discovery
+    tenant: classscout
+    app: classscout
+    operation: discovery
+    prompt: prompts/discovery/classscout.md
+    cron: "*/45 * * * *"
+    tz: "Europe/Budapest"
+    enabled: false
+    timeoutMs: 300000
+    retry:
+      maxAttempts: 3
+      backoffMs: 5000
+
+  - worker: classscout-enrichment
+    tenant: classscout
+    app: classscout
+    operation: enrichment
+    prompt: prompts/enrichment/classscout.md
+    cron: "*/45 * * * *"
+    tz: "Europe/Budapest"
+    enabled: false
+    timeoutMs: 300000
+    retry:
+      maxAttempts: 3
+      backoffMs: 5000
+

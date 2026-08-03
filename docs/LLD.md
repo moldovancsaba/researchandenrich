@@ -15,7 +15,7 @@ Nothing in this repo actually `require()`s `schema-mapper.js` or the `runtime/*`
 
 ### 1.1 `tenants.json` (repo root)
 
-Single top-level key `tenants: { [tenantId]: {...} }`. Real entries: `cogmap`, `seyu`, `dvsc` (all `app: "researchandenrich"`).
+Single top-level key `tenants: { [tenantId]: {...} }`. Real entries: `cogmap`, `seyu`, `dvsc` (all `app: "researchandenrich"`, `schemaFamily: "sales-lead-api"`), and `classscout` (`app: "classscout"`, `schemaFamily: "program-api"`, no `forecastModel` -- that field is sales-lead-api-only).
 
 | field | example | purpose |
 |---|---|---|
@@ -36,11 +36,11 @@ Single top-level key `tenants: { [tenantId]: {...} }`. Real entries: `cogmap`, `
 
 ### 1.2 `apps.yaml` (repo root)
 
-Single `apps:` map, one entry: `researchandenrich`. Fields: `appId`, `displayName`, `description`, `tenants: [cogmap, seyu, dvsc]`, `verifier: runtime/verifier/list-based.js`, `schemaMapper: schema-mapper.js` (fixed to the real repo-root path 2026-08-02 — previously incorrectly said `runtime/schema-mapper.js`), `healthCheckTemplate: "GET /api/leads?brand={{tenant}}&limit=1"`, `maxResultsPerRun: 5`, `requireDecisionMaker: true`.
+Two entries in the `apps:` map. `researchandenrich`: `appId`, `displayName`, `description`, `tenants: [cogmap, seyu, dvsc]`, `verifier: runtime/verifier/list-based.js`, `schemaMapper: schema-mapper.js` (fixed to the real repo-root path 2026-08-02 — previously incorrectly said `runtime/schema-mapper.js`), `healthCheckTemplate: "GET /api/leads?brand={{tenant}}&limit=1"`, `maxResultsPerRun: 5`, `requireDecisionMaker: true`. `classscout`: a separate app (structurally different target API, not just a different tenant of the same app) — `tenants: [classscout]`, `verifier: runtime/verifier/response-based.js` (no readable list/get endpoint under the ingest credential, so `list-based.js` doesn't apply), `schemaMapper: schema-mapper.js` (shared file, dispatches on `schemaFamily` same as always), `healthCheckTemplate: "GET /api/ingest"`, `requireDecisionMaker: false` (not a sales concept for provider research).
 
 ### 1.3 `workers/<tenant>/*.yaml`
 
-Six files: `workers/{cogmap,seyu,dvsc}/{discovery,enrichment}.yaml`. Shared shape:
+Eight files: `workers/{cogmap,seyu,dvsc,classscout}/{discovery,enrichment}.yaml`. Shared shape:
 
 ```yaml
 tenant: <id>
@@ -64,13 +64,13 @@ Exports a single class, `module.exports = SchemaMapper`. Constructor eagerly loa
 **Public methods:**
 - `getTenant(tenantId)` — looks up `this.tenants[tenantId]`, throws `Unknown tenant` if missing.
 - `listTenants()` — maps all tenants to `{id, name, app, discoveryEnabled, enrichmentEnabled}`.
-- `mapToApiPayload(tenantId, genericRecord)` — the anti-contamination gate. Clones the record, strips `tenant.forbiddenFields`, then dispatches purely on `tenant.schemaFamily`: `'sales-lead-api'` → `_mapSalesLeadApi()`, `'program-api'` → `_mapClassScout()`. Unknown/missing `schemaFamily` throws. **No tenant-ID branching anywhere** — grep for `case 'cogmap'`/`tenantId ===` returns nothing.
+- `mapToApiPayload(tenantId, genericRecord, action='post')` — the anti-contamination gate. Clones the record, strips `tenant.forbiddenFields`, then dispatches purely on `tenant.schemaFamily`: `'sales-lead-api'` → `_mapSalesLeadApi()`, `'program-api'` → `_mapClassScout()`. Unknown/missing `schemaFamily` throws. **No tenant-ID branching anywhere** — grep for `case 'cogmap'`/`tenantId ===` returns nothing. The third `action` parameter (`'post'`|`'put'`) is new for `program-api` — sales-lead-api ignores it (its two HTTP verbs map to two different URLs, decided by the caller).
   - `_mapSalesLeadApi(tenant, payload)` — standardizes contacts, then mutually-exclusively normalizes `recommended_tier`/`revenue_model`/`estimated_participants`/`estimated_annual_revenue_usd`/`product_fit_notes` if `tenant.forecastModel === 'deal-size-band'`, or `pricingByCompany` (currency uppercase, `pricing_model` vocabulary, numeric clamps) if `tenant.forecastModel === 'pricing-by-company'`.
-  - `_mapClassScout(tenant, payload)` — strips lead-only fields for the (currently unused-by-any-static-tenant) `program-api` family.
-- `validateForTenant(tenantId, payload)` → `{valid, errors[]}`. Checks `tenant.qualityGate?.requiredFields` (not populated by any real tenant today — effectively a no-op), checks `forbiddenFields` absence, dispatches to `_validateLead`/`_validateProgram` on `schemaFamily`.
+  - `_mapClassScout(tenant, payload, action)` — builds classscout's real `Provider` shape (`curatedProviderSchema`), not a flat lead/program record. `action === 'post'`: wraps a single new provider as `{operations: [{resource: 'providers', action: 'upsertMany', documents: [provider]}]}`, filling in neutral defaults for editorial-only fields (`rating: 0`, `reviewCount: 0`, `badges: []`) that a research agent has no basis to report. `action === 'put'`: wraps only-changed fields as `{operations: [{resource: 'provider', action: 'patch', id, patch}]}`. Fully rewritten 2026-08-02 from an earlier dormant version that targeted a fictional `POST /api/programs` endpoint — see `docs/RUNTIME_ARCHITECTURE_NOTES.md`'s classscout section for that history.
+- `validateForTenant(tenantId, payload)` → `{valid, errors[]}`. Checks `tenant.qualityGate?.requiredFields` (not populated by any real tenant today — effectively a no-op), checks `forbiddenFields` absence, dispatches to `_validateLead`/`_validateProgram` on `schemaFamily`. `payload` here is the already-`mapToApiPayload`-mapped result, not the raw generic record (matters for `program-api`, whose validator reads `payload.operations[0]`).
   - `_validateLead` — contacts-is-array, lowercase-email, international-format phone (`+` prefix), `pro_for_organization`/`con_for_organization` must be `string | string[]`, plus `deal-size-band`-specific tier/revenue-model/numeric checks when applicable.
-  - `_validateProgram` — `name`/`provider`/`phone_or_email` required, `age_min <= age_max`, `pricing` object, `schedule` array.
-- `getApiEndpoint(tenantId, action, id=null)` — dispatches on `schemaFamily`. For `sales-lead-api`: `list`/`get`/`post`/`put`/`health`/`stats`, and **every** action (not just `list`) appends `?brand=${tenantId}` explicitly — fixed 2026-08-02, since salesleadgenerator's `resolveBrand()` silently defaults a missing/unrecognized brand to `'cogmap'` rather than erroring (verified live: a real `POST /api/leads?brand=dvsc` succeeds today — there is no brand whitelist on salesleadgenerator's side). For `program-api`: adds a `boroughs` action.
+  - `_validateProgram` — validates the mapped ingest envelope against classscout's real Provider contract: `id` matches `/^prov-[a-z0-9-]+$/`, `category` is one of exactly 4 FORMAT values (Classes/Camps/Birthday Parties/Drop-In Activities — not a subject taxonomy), `ageRanges` entries are in the closed en-dash 5-bucket vocabulary, `image` is a non-empty `i.ibb.co` URL, `website` is a valid URL — on `action: 'patch'` only present fields are checked (partial update); on create, all required fields are checked.
+- `getApiEndpoint(tenantId, action, id=null)` — dispatches on `schemaFamily`. For `sales-lead-api`: `list`/`get`/`post`/`put`/`health`/`stats`, and **every** action (not just `list`) appends `?brand=${tenantId}` explicitly — fixed 2026-08-02, since salesleadgenerator's `resolveBrand()` silently defaults a missing/unrecognized brand to `'cogmap'` rather than erroring (verified live: a real `POST /api/leads?brand=dvsc` succeeds today — there is no brand whitelist on salesleadgenerator's side). For `program-api`: `post`/`put`/`health` all resolve to the single real `${base}/api/ingest` endpoint (classscout has one write endpoint for both create and patch — the operation type lives in the body, not the URL); `list`/`get` throw on purpose (no ingest-credential-readable route exists).
 - `getEnrichmentCriteria(tenantId)` / `getQualityGate(tenantId)` — return `tenant.enrichmentCriteria || {}` / `tenant.qualityGate || {}` (neither populated by any real tenant today).
 - `_standardizeContacts(payload)` (private) — lowercases `contacts[].email` and `decision_maker_contact`.
 
@@ -125,7 +125,7 @@ Static defaults, not generated. `healthcheck.yaml`: per-family health endpoint t
 
 ## 5. `prompts/discovery/*.md` and `prompts/enrichment/*.md`
 
-Six OpenClaw-format Markdown files (not JSON/YAML): `prompts/discovery/{cogmap,seyu,dvsc}.md` and `prompts/enrichment/{cogmap,seyu,dvsc}.md`.
+Eight OpenClaw-format Markdown files (not JSON/YAML): `prompts/discovery/{cogmap,seyu,dvsc,classscout}.md` and `prompts/enrichment/{cogmap,seyu,dvsc,classscout}.md`. `classscout.md`'s pair are structurally the same skeleton but a different tenant block/schema entirely -- see the "The Real Schema" and "Image Sourcing" sections of `prompts/discovery/classscout.md` for what's genuinely new versus the sales-lead-api tenants.
 
 **Common to all 6:**
 - Start-up: `source "$HOME/.openclaw/workspace/.env.<tenant>"`, reads `SLG_API_KEY` (cogmap/dvsc) or `SEYU_API_KEY` (seyu) for `x-api-key`.

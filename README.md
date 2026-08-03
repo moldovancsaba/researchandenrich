@@ -1,6 +1,6 @@
 # ContentCreator Agent Runtime
 
-Agent runtime for ContentCreator — unified lead and program research service. Serves three tenants (cogmap, seyu, dvsc), each run as a fixed-tenant cron job — one tenant per run, no round-robin state, per the Fixed-Tenant Contract embedded in every prompt file.
+Agent runtime for ContentCreator — unified lead and program research service. Serves four tenants across two apps: cogmap/seyu/dvsc (the `researchandenrich` app, sales-lead-api schemaFamily, writing into salesleadgenerator) and classscout (its own app, program-api schemaFamily, writing into classscout.ai's real provider catalog via `POST /api/ingest`). Each tenant runs as a fixed-tenant cron job — one tenant per run, no round-robin state, per the Fixed-Tenant Contract embedded in every prompt file.
 
 ## Repo Layout
 
@@ -37,7 +37,9 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 │                                  not under runtime/, see apps.yaml's schemaMapper: field)
 ├── runtime/
 │   ├── verifier/list-based.js    <- list-based verification (GET-by-ID is unreliable,
-│   │                                 per its own doc comment)
+│   │                                 per its own doc comment) -- sales-lead-api tenants
+│   ├── verifier/response-based.js <- response-based verification, for tenants (classscout)
+│   │                                 whose ingest credential has no readable list/get route
 │   └── shared/                   <- cache, HTTP client, retry helpers
 ├── workers/*/                 <- per-tenant worker YAML configs (discovery.yaml,
 │                                  enrichment.yaml)
@@ -60,8 +62,13 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 │                                  MCP stdio server (separate integration path from the
 │                                  OpenClaw prompts' own hardcoded AgentFinder invocation)
 ├── vercel.json                <- Vercel config (empty, auto-detects Next.js)
-└── .env.cogmap / .env.seyu / .env.dvsc  <- gitignored credential files
+└── .env.cogmap / .env.seyu / .env.dvsc / .env.classscout  <- gitignored credential files
 ```
+
+classscout's real target API (`POST /api/ingest`, the `Provider` Zod schema)
+lives in the separate `classscout` repo, not here — this repo only holds the
+research prompts/schema-mapper/config that call it, the same relationship it
+has with salesleadgenerator for the sales-lead-api tenants.
 
 See `docs/RUNTIME_ARCHITECTURE_NOTES.md` for details on this repo's two unsynced
 config sources (static files vs. the Mongo-backed admin API), Claude Code MCP
@@ -142,6 +149,39 @@ tenant selling something schema-mapper.js has never modeled before (a
 different target API/schema entirely, not just a different brand) needs an
 actual code change — see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §4a for how
 `schemaFamily` extends to that case.
+
+**classscout is that "genuinely new schema shape" case**, already built —
+its `tenants.json` entry uses `"schemaFamily": "program-api"` (no
+`forecastModel`; that field is sales-lead-api-only) and its own `classscout`
+app entry in `apps.yaml` (a separate app, not a tenant of the
+`researchandenrich` app — it targets a structurally different API). Two
+things are genuinely different from every sales-lead-api tenant, and matter
+if you're onboarding a further program-api-family tenant later:
+- classscout has **one** write endpoint (`POST /api/ingest`) for both create
+  and patch, so `mapToApiPayload(tenantId, record, action)` takes a third
+  `action` argument (`'post'` or `'put'`) to build the right operation
+  envelope — sales-lead-api tenants ignore this argument.
+- classscout's ingest credential has **no readable list/get endpoint** —
+  `getApiEndpoint('classscout', 'list'|'get')` throws on purpose. Verify
+  writes via `runtime/verifier/response-based.js` against the `POST
+  /api/ingest` response's own per-operation `{ok, error?}` results, not a
+  re-fetch (`runtime/verifier/list-based.js` does not apply to this tenant).
+
+An earlier classscout integration attempt existed in this repo's very first
+commit and was torn out ~20 hours later when the repo was repositioned as
+sales-lead-only (see `docs/RUNTIME_ARCHITECTURE_NOTES.md`); its leftover
+`_mapClassScout`/`_validateProgram` code targeted a placeholder
+`classscout-api.vercel.app`/`POST /api/programs` that never matched
+classscout's real API. The current `program-api` implementation is a full
+rewrite against classscout's actual `POST /api/ingest` contract and its
+`curatedProviderSchema` — see the docblocks on `_mapClassScout`/
+`_validateProgram` in `schema-mapper.js` and the Tenant Block / "The Real
+Schema" sections of `prompts/discovery/classscout.md` for the specifics
+(category is the program FORMAT not the subject, ageRanges uses an en dash,
+`image`/`website` are hard-required with no image-optional path). classscout
+ships **paused** like `dvsc` did — real `INGEST_API_KEY`/`IMGBB_API_KEY`
+credentials are needed in `.env.classscout` before either `enabled` flag can
+flip to `true`.
 
 ## Per-Tenant Toggles
 

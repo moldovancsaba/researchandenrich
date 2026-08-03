@@ -17,6 +17,7 @@
 
 const assert = require('assert');
 const SchemaMapper = require('../schema-mapper');
+const { verifyFromIngestResponse } = require('../runtime/verifier/response-based');
 
 let passed = 0;
 function check(label, fn) {
@@ -119,6 +120,132 @@ check('a tenant with no schemaFamily throws rather than silently defaulting', ()
   broken.tenants.broken = { app: 'researchandenrich', apiBase: 'https://example.com', forbiddenFields: [] };
   assert.throws(() => broken.getApiEndpoint('broken', 'post'), /schemaFamily/);
   assert.throws(() => broken.mapToApiPayload('broken', {}), /schemaFamily/);
+});
+
+// --- program-api (classscout) ---
+// Targets classscout's real `POST /api/ingest` batch-operations contract,
+// not the sales-lead-api shape above. See schema-mapper.js's `_mapClassScout`
+// docblock for why the field vocabulary differs (category = program format,
+// not subject; ageRanges is a closed en-dash-bucket enum; image/website are
+// hard-required).
+check("getApiEndpoint('classscout', 'post'|'put'|'health') all resolve to the single /api/ingest endpoint", () => {
+  const url = mapper.getApiEndpoint('classscout', 'post');
+  assert.strictEqual(url, 'https://classscout.ai/api/ingest');
+  assert.strictEqual(mapper.getApiEndpoint('classscout', 'put'), url);
+  assert.strictEqual(mapper.getApiEndpoint('classscout', 'health'), url);
+});
+
+check("getApiEndpoint('classscout', 'list'|'get') throw -- no ingest-credential-readable route exists", () => {
+  assert.throws(() => mapper.getApiEndpoint('classscout', 'list'), /no ingest-credential-readable/);
+  assert.throws(() => mapper.getApiEndpoint('classscout', 'get'), /no ingest-credential-readable/);
+});
+
+const sampleProvider = {
+  id: 'prov-brooklyn-art-studio-a1b2c3',
+  name: 'Brooklyn Art Studio for Kids',
+  category: 'Classes',
+  borough: 'Brooklyn',
+  neighborhood: 'Park Slope',
+  address: '123 7th Ave, Brooklyn, NY 11215',
+  activityTypes: ['Art', 'Painting'],
+  ageRanges: ['3–5', '6–8'],
+  dayTimeTags: ['Weekday', 'Afternoon'],
+  pricePerClass: 35,
+  shortDescription: 'Weekly art classes for young kids in Park Slope.',
+  longDescription: 'Brooklyn Art Studio for Kids offers weekly painting and drawing classes for children ages 3-8 in a bright, welcoming Park Slope studio, taught by working artists.',
+  image: 'https://i.ibb.co/abc123/brooklyn-art-studio.jpg',
+  website: 'https://brooklynartstudioforkids.example.com',
+  email: 'HELLO@BrooklynArtStudioForKids.example.com',
+  phone: '+1 718 555 0100',
+  contactLinks: [{ type: 'email', label: 'General', value: 'HELLO@BrooklynArtStudioForKids.example.com' }],
+  sourceUrls: ['https://brooklynartstudioforkids.example.com/about'],
+};
+
+check("mapToApiPayload('classscout', record, 'post') wraps a providers.upsertMany operation and lowercases emails", () => {
+  const payload = mapper.mapToApiPayload('classscout', sampleProvider, 'post');
+  assert.strictEqual(payload.operations.length, 1);
+  const op = payload.operations[0];
+  assert.strictEqual(op.resource, 'providers');
+  assert.strictEqual(op.action, 'upsertMany');
+  assert.strictEqual(op.documents[0].email, 'hello@brooklynartstudioforkids.example.com');
+  assert.strictEqual(op.documents[0].contactLinks[0].value, 'hello@brooklynartstudioforkids.example.com');
+  assert.strictEqual(op.documents[0].rating, 0, 'editorial fields must never be invented by discovery');
+  assert.strictEqual(op.documents[0].reviewCount, 0);
+  assert.deepStrictEqual(op.documents[0].badges, []);
+});
+
+check("mapToApiPayload('classscout', {...}, 'put') wraps a provider.patch operation with only-changed fields", () => {
+  const payload = mapper.mapToApiPayload('classscout', { id: 'prov-brooklyn-art-studio-a1b2c3', phone: '+1 718 555 0199' }, 'put');
+  assert.strictEqual(payload.operations.length, 1);
+  const op = payload.operations[0];
+  assert.strictEqual(op.resource, 'provider');
+  assert.strictEqual(op.action, 'patch');
+  assert.strictEqual(op.id, 'prov-brooklyn-art-studio-a1b2c3');
+  assert.deepStrictEqual(op.patch, { phone: '+1 718 555 0199' });
+});
+
+check("validateForTenant('classscout') accepts a valid mapped create payload", () => {
+  const payload = mapper.mapToApiPayload('classscout', sampleProvider, 'post');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.deepStrictEqual(result.errors, []);
+});
+
+check("validateForTenant('classscout') rejects a missing image (the hard-required-field mistake an agent is likely to make)", () => {
+  const noImage = { ...sampleProvider, image: '' };
+  const payload = mapper.mapToApiPayload('classscout', noImage, 'post');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('image')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects a subject-taxonomy value used as category (the sports/arts/etc. mistake every prior attempt made)", () => {
+  const wrongCategory = { ...sampleProvider, category: 'Sports' };
+  const payload = mapper.mapToApiPayload('classscout', wrongCategory, 'post');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('category must be one of')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects an ageRanges value not in the closed en-dash vocabulary (the raw age_min/age_max mistake)", () => {
+  const wrongAge = { ...sampleProvider, ageRanges: ['3-5'] }; // hyphen, not en dash
+  const payload = mapper.mapToApiPayload('classscout', wrongAge, 'post');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('ageRanges')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects a create payload missing category or borough (regression: these were only format-checked, never required-checked)", () => {
+  const { category, borough, ...missingBoth } = sampleProvider;
+  const payload = mapper.mapToApiPayload('classscout', missingBoth, 'post');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('category is required')), result.errors.join('; '));
+  assert.ok(result.errors.some((e) => e.includes('borough is required')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects a patch that explicitly sets image: '' (regression: empty string was exempted from the ImgBB check)", () => {
+  const payload = mapper.mapToApiPayload('classscout', { id: sampleProvider.id, image: '' }, 'put');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('image must be an https ImgBB URL')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') still accepts a patch that OMITS image entirely (leaving the existing image untouched is fine)", () => {
+  const payload = mapper.mapToApiPayload('classscout', { id: sampleProvider.id, phone: '+1 718 555 0199' }, 'put');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.deepStrictEqual(result.errors, []);
+});
+
+// --- runtime/verifier/response-based.js ---
+check('verifyFromIngestResponse does NOT confirm a batch when the API silently dropped an operation (regression: results.length < expectedIds.length used to pass via vacuous .every())', () => {
+  const result = verifyFromIngestResponse({
+    responseBody: { ok: true, results: [{ index: 0, ok: true }] }, // only 1 result back
+    expectedIds: ['prov-a', 'prov-b'], // but 2 operations were submitted
+  });
+  assert.strictEqual(result.confirmed, false);
+});
+
+check('verifyFromIngestResponse confirms a batch when every expected result came back ok', () => {
+  const result = verifyFromIngestResponse({
+    responseBody: { ok: true, results: [{ index: 0, ok: true }, { index: 1, ok: true }] },
+    expectedIds: ['prov-a', 'prov-b'],
+  });
+  assert.strictEqual(result.confirmed, true);
 });
 
 console.log(`\n${passed} check(s) passed.`);
