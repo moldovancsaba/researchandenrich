@@ -48,6 +48,11 @@
 - Tenant ID: classscout
 - API base: https://classscout.ai
 - Endpoint: POST /api/ingest (single endpoint, action: "patch" for enrichment)
+- Scope (narrowed 2026-08-03): sport-thematic Classes and Camps only, in
+  Manhattan and Brooklyn ONLY. Only enrich records that already match this
+  scope (a record's category is Classes/Camps, borough is Manhattan/
+  Brooklyn, and activityTypes are genuine sports). Do not enrich a record
+  outside this scope even if you happen to have its id from a prior run.
 - Forbidden fields: pro_for_organization, con_for_organization, decision_maker_*, ice, kanbanColumn, recommended_tier, revenue_model, estimated_participants, estimated_annual_revenue_usd, pricingByCompany
 ```
 
