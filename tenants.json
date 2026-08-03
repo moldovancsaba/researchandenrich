@@ -3,7 +3,7 @@
     "cogmap": {
       "app": "researchandenrich",
       "displayName": "CogMap",
-      "status": "active",
+      "status": "paused",
       "apiBase": "https://salesleadgenerator.vercel.app",
       "board": "cogmap",
       "scope": "US large cities and neighborhoods; youth soccer clubs with 500+ players; professional club academies including MLS, USL, NWSL, CPL, and European academies",
@@ -22,7 +22,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": true
+        "enabled": false
       },
       "enrichment": {
         "prompt": "prompts/enrichment/cogmap.md",
@@ -31,13 +31,13 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": true
+        "enabled": false
       }
     },
     "seyu": {
       "app": "researchandenrich",
       "displayName": "Seyu",
-      "status": "active",
+      "status": "paused",
       "apiBase": "https://salesleadgenerator.vercel.app",
       "board": "seyu",
       "scope": "Sports clubs, leagues, federations with live events; entertainment venues and live-event promoters; sports media and broadcasters; sports-tech and fan-engagement vendors",
@@ -56,7 +56,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": true
+        "enabled": false
       },
       "enrichment": {
         "prompt": "prompts/enrichment/seyu.md",
@@ -65,7 +65,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": true
+        "enabled": false
       }
     },
     "dvsc": {
@@ -105,10 +105,10 @@
     "classscout": {
       "app": "classscout",
       "displayName": "ClassScout",
-      "status": "paused",
+      "status": "active",
       "apiBase": "https://classscout.ai",
       "board": "classscout",
-      "scope": "NYC providers offering Classes, Camps, Birthday Parties, or Drop-In Activities for kids ages 0-17, across all 5 boroughs",
+      "scope": "Sport-thematic Classes and Camps for kids ages 0-17, Manhattan and Brooklyn only (2026-08-03 narrowed focus)",
       "brandFields": {},
       "forbiddenFields": [
         "pro_for_organization", "con_for_organization",
@@ -126,7 +126,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": false
+        "enabled": true
       },
       "enrichment": {
         "prompt": "prompts/enrichment/classscout.md",
@@ -135,7 +135,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": false
+        "enabled": true
       }
     }
   }

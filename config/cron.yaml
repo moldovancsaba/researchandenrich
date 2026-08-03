@@ -11,7 +11,7 @@ schedule:
     prompt: prompts/discovery/cogmap.md
     cron: "*/45 * * * *"
     tz: "Europe/Budapest"
-    enabled: true
+    enabled: false
     timeoutMs: 300000
     retry:
       maxAttempts: 3
@@ -24,7 +24,7 @@ schedule:
     prompt: prompts/enrichment/cogmap.md
     cron: "*/45 * * * *"
     tz: "Europe/Budapest"
-    enabled: true
+    enabled: false
     timeoutMs: 300000
     retry:
       maxAttempts: 3
@@ -37,7 +37,7 @@ schedule:
     prompt: prompts/discovery/seyu.md
     cron: "*/45 * * * *"
     tz: "Europe/Budapest"
-    enabled: true
+    enabled: false
     timeoutMs: 300000
     retry:
       maxAttempts: 3
@@ -50,7 +50,7 @@ schedule:
     prompt: prompts/enrichment/seyu.md
     cron: "*/45 * * * *"
     tz: "Europe/Budapest"
-    enabled: true
+    enabled: false
     timeoutMs: 300000
     retry:
       maxAttempts: 3
@@ -89,7 +89,7 @@ schedule:
     prompt: prompts/discovery/classscout.md
     cron: "*/45 * * * *"
     tz: "Europe/Budapest"
-    enabled: false
+    enabled: true
     timeoutMs: 300000
     retry:
       maxAttempts: 3
@@ -102,7 +102,7 @@ schedule:
     prompt: prompts/enrichment/classscout.md
     cron: "*/45 * * * *"
     tz: "Europe/Budapest"
-    enabled: false
+    enabled: true
     timeoutMs: 300000
     retry:
       maxAttempts: 3

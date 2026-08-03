@@ -47,12 +47,33 @@
 - Tenant ID: classscout
 - API base: https://classscout.ai
 - Endpoint: POST /api/ingest (single endpoint for both create and patch)
-- Scope: NYC providers offering Classes, Camps, Birthday Parties, or Drop-In Activities for kids ages 0-17, across all 5 boroughs
+- Scope (narrowed 2026-08-03): sport-thematic Classes and Camps only, for
+  kids ages 0-17, in Manhattan and Brooklyn ONLY. Birthday Parties and
+  Drop-In Activities are out of scope for this narrowed focus, as are the
+  other 3 boroughs (Queens, Bronx, Staten Island) and any non-sport subject.
+  See "Narrowed Focus" below.
 - Board: classscout
 - Brand fields: (none — provider research, not sales leads)
 - Forbidden fields: pro_for_organization, con_for_organization, decision_maker_*, ice, kanbanColumn, recommended_tier, revenue_model, estimated_participants, estimated_annual_revenue_usd, pricingByCompany
 - Min contacts: a real website URL (required) plus phone or email
 ```
+
+## Narrowed Focus (2026-08-03 — current standing instruction)
+This tenant's research is currently restricted to a subset of what the live
+schema itself allows:
+- **Borough**: Manhattan and Brooklyn ONLY. Do not research or write
+  providers in Queens, Bronx, or Staten Island while this restriction stands
+  — this is a scope narrowing, not a schema change; `borough` still accepts
+  all 5 values server-side, we're simply not using the other 3 right now.
+- **Category**: `Classes` and `Camps` ONLY. Do not write `Birthday Parties`
+  or `Drop-In Activities` records while this restriction stands.
+- **Subject**: `activityTypes` must be genuine sports/athletic disciplines
+  — e.g. soccer, basketball, baseball/softball, tennis, swimming,
+  gymnastics, martial arts, track & field, volleyball, hockey, lacrosse,
+  football, cheerleading/competitive cheer, golf, fencing. Non-sport
+  subjects (art, music, STEM/coding, general dance, academic tutoring,
+  general enrichment) are out of scope — skip these providers entirely,
+  do not write them with a mismatched activityType just to fit the format.
 
 ## What This Is
 classscout researches NYC providers of kids' activities and writes them into
@@ -121,9 +142,12 @@ missing or non-ImgBB `image` URL — there is no image-optional path).
 
 ## Coverage Balancing
 
-Prioritize research where classscout's catalog is thinnest:
-- Prioritize boroughs with fewer than 5 discovered providers so far.
-- Prioritize `category` values with fewer than 3 discovered providers so far.
+Prioritize research where classscout's catalog is thinnest, WITHIN the
+narrowed focus (Manhattan/Brooklyn, sport Classes/Camps only — see above):
+- Prioritize whichever of Manhattan/Brooklyn has fewer discovered sport
+  providers so far.
+- Prioritize whichever of Classes/Camps has fewer discovered sport
+  providers so far.
 - Cap new writes at 10 providers per borough×category combination per run to
   keep coverage even rather than over-indexing on whichever search queries
   happen to return the most results.
@@ -147,17 +171,24 @@ searching for both, plus a physical address, before finalizing a record.
 
 ## Program Fit Rules
 
-### In scope
-- Classes (recurring, scheduled instruction)
-- Camps (summer, break, holiday)
-- Birthday parties (party packages/venues for kids)
-- Drop-in activities (free or paid, no registration required)
+### In scope (narrowed 2026-08-03)
+- Sport Classes (recurring, scheduled sports instruction) in Manhattan or
+  Brooklyn
+- Sport Camps (summer, break, holiday sports camps) in Manhattan or
+  Brooklyn
 
 ### Age range
 - Must serve children ages 0-17. Skip adult-only programs or programs with
   no verifiable child age range.
 
 ### Exclusions
+- Birthday parties and drop-in activities (out of scope while the narrowed
+  focus stands, even though the schema itself allows these `category`
+  values)
+- Any borough other than Manhattan or Brooklyn (Queens, Bronx, Staten
+  Island)
+- Non-sport subjects (art, music, STEM/coding, general dance, academic
+  tutoring, general enrichment)
 - Adult-only programs
 - Programs outside NYC (no borough match)
 - Unverified or spammy providers
@@ -183,10 +214,14 @@ Cross-reference at least 2 sources before writing a provider.
 ## Data Collection For Each Provider
 
 1. **name** — provider/organization name exactly as offered
-2. **category** — one of the 4 FORMAT values (Classes/Camps/Birthday
-   Parties/Drop-In Activities)
-3. **activityTypes** — the actual subjects/activities (free text array)
-4. **borough** — one of the 5 NYC boroughs
+2. **category** — `Classes` or `Camps` ONLY while the narrowed focus stands
+   (the schema itself also allows `Birthday Parties`/`Drop-In Activities`,
+   but those are currently out of scope)
+3. **activityTypes** — genuine sports/athletic subjects ONLY while the
+   narrowed focus stands (see "Narrowed Focus" above)
+4. **borough** — `Manhattan` or `Brooklyn` ONLY while the narrowed focus
+   stands (the schema itself also allows Queens/Bronx/Staten Island, but
+   those are currently out of scope)
 5. **neighborhood** — specific neighborhood name
 6. **address** — full physical address
 7. **ageRanges** — bucketed into the 5-value en-dash vocabulary
