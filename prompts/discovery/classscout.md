@@ -201,13 +201,19 @@ Cross-reference at least 2 sources before writing a provider.
 14. **email** / **phone** — as available
 15. **contactLinks** — additional typed contact links (registration page,
     Instagram, Facebook) beyond the primary website/email/phone. Each
-    entry's `type` is a **closed server-side enum** — one of exactly:
-    `website`, `registration`, `email`, `phone`, `instagram`, `facebook`,
-    `other`. A plausible-looking value outside this list (e.g. `linkedin`,
-    `twitter`, `x`) is rejected at write time with a 422 — put anything not
-    in this list under `type: "other"` instead. (Confirmed by a real live
-    422 rejection, 2026-08-03: `type: "linkedin"` failed server-side even
-    though it looked like a reasonable value to add.)
+    entry requires **both** of the following, or the write is rejected:
+    - `type` is a **closed server-side enum** — one of exactly:
+      `website`, `registration`, `email`, `phone`, `instagram`, `facebook`,
+      `other`. A plausible-looking value outside this list (e.g. `linkedin`,
+      `twitter`, `x`) is rejected at write time with a 422 — put anything not
+      in this list under `type: "other"` instead. (Confirmed by a real live
+      422 rejection, 2026-08-03: `type: "linkedin"` failed server-side even
+      though it looked like a reasonable value to add.)
+    - `label` — a non-empty display string (e.g. `"Instagram"`,
+      `"Registration"`, `"YouTube"`). Omitting it is rejected at write time
+      with a 422 (`contactLinks.0.label: Required`). (Confirmed by a real
+      live 422 rejection, 2026-08-03, on the very first create attempt of a
+      test run.) Always set both `type` and `label` together.
 16. **sourceUrls** — the URL(s) where you found this provider
 
 ## Quality Gate
