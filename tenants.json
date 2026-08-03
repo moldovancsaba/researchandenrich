@@ -101,6 +101,42 @@
         "mode": "feeder",
         "enabled": false
       }
+    },
+    "classscout": {
+      "app": "classscout",
+      "displayName": "ClassScout",
+      "status": "paused",
+      "apiBase": "https://classscout.ai",
+      "board": "classscout",
+      "scope": "NYC providers offering Classes, Camps, Birthday Parties, or Drop-In Activities for kids ages 0-17, across all 5 boroughs",
+      "brandFields": {},
+      "forbiddenFields": [
+        "pro_for_organization", "con_for_organization",
+        "decision_maker_name", "decision_maker_title", "decision_maker_contact",
+        "contact_phone", "ice", "kanbanColumn", "board",
+        "recommended_tier", "revenue_model", "estimated_participants", "estimated_annual_revenue_usd",
+        "pricingByCompany"
+      ],
+      "iceScoring": false,
+      "schemaFamily": "program-api",
+      "discovery": {
+        "prompt": "prompts/discovery/classscout.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": false
+      },
+      "enrichment": {
+        "prompt": "prompts/enrichment/classscout.md",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        },
+        "mode": "feeder",
+        "enabled": false
+      }
     }
   }
 }

@@ -11,3 +11,4 @@ out/
 .env.cogmap.bak
 .env.seyu
 .env.dvsc
+.env.classscout
