@@ -26,6 +26,17 @@
 - No round-robin state updates from inside the run.
 - classscout has **one** write endpoint (`POST /api/ingest`) for both create and
   patch — never `PATCH`, never `/api/programs` (that endpoint does not exist).
+- **The real create-operation envelope is NOT the obvious-looking
+  `{resource: "provider", action: "post", ...fields}`.** It is
+  `{"operations": [{"resource": "providers", "action": "upsertMany",
+  "documents": [ <the full provider record> ]}]}` — plural `"providers"`,
+  `"upsertMany"`, and the record wrapped in a `documents` array. A patch is
+  the more obvious-looking shape: `{"resource": "provider", "action":
+  "patch", "id": "<id>", "patch": {...only changed fields...}}` (singular
+  `"provider"`). Always build the envelope via `schema-mapper.js`'s
+  `mapToApiPayload('classscout', record, 'post'|'put')` rather than
+  hand-writing it from this prose — a hand-built envelope guessed from the
+  field list alone is likely to use the wrong create shape.
 - There is **no readable list/get endpoint** under this credential — verify
   writes from the POST response itself (see Verification Contract below), not
   a re-fetch.
@@ -189,7 +200,14 @@ Cross-reference at least 2 sources before writing a provider.
 13. **website** — official website URL, must resolve
 14. **email** / **phone** — as available
 15. **contactLinks** — additional typed contact links (registration page,
-    Instagram, Facebook) beyond the primary website/email/phone
+    Instagram, Facebook) beyond the primary website/email/phone. Each
+    entry's `type` is a **closed server-side enum** — one of exactly:
+    `website`, `registration`, `email`, `phone`, `instagram`, `facebook`,
+    `other`. A plausible-looking value outside this list (e.g. `linkedin`,
+    `twitter`, `x`) is rejected at write time with a 422 — put anything not
+    in this list under `type: "other"` instead. (Confirmed by a real live
+    422 rejection, 2026-08-03: `type: "linkedin"` failed server-side even
+    though it looked like a reasonable value to add.)
 16. **sourceUrls** — the URL(s) where you found this provider
 
 ## Quality Gate

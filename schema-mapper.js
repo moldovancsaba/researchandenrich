@@ -390,6 +390,12 @@ class SchemaMapper {
     const CATEGORIES = ['Classes', 'Camps', 'Birthday Parties', 'Drop-In Activities'];
     const AGE_RANGES = ['0–2', '3–5', '6–8', '9–12', 'Teens'];
     const DAY_TAGS = ['Weekday', 'Weekend', 'Morning', 'Afternoon', 'Evening', 'After-school'];
+    // Confirmed against a real live 422 rejection (2026-08-03): classscout's
+    // server-side Zod schema enforces this exact set on contactLinks[].type --
+    // 'linkedin' is a real, plausible-looking value a research agent will try
+    // that is NOT in this list, and this local check did not previously catch
+    // it, so the invalid write only failed at the live API, one operation late.
+    const CONTACT_LINK_TYPES = ['website', 'registration', 'email', 'phone', 'instagram', 'facebook', 'other'];
 
     const op = payload.operations && payload.operations[0];
     if (!op) {
@@ -402,7 +408,7 @@ class SchemaMapper {
       if (!op.id || typeof op.id !== 'string' || !/^prov-[a-z0-9-]+$/.test(op.id)) {
         errors.push(`patch id must match /^prov-[a-z0-9-]+$/: ${op.id}`);
       }
-      this._validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS);
+      this._validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS, CONTACT_LINK_TYPES);
       return;
     }
 
@@ -443,10 +449,10 @@ class SchemaMapper {
     } else {
       try { new URL(doc.website); } catch { errors.push(`website must be a valid URL: ${doc.website}`); }
     }
-    this._validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS);
+    this._validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS, CONTACT_LINK_TYPES);
   }
 
-  _validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS) {
+  _validateProviderFieldsIfPresent(doc, errors, CATEGORIES, AGE_RANGES, DAY_TAGS, CONTACT_LINK_TYPES) {
     if (doc.category !== undefined && !CATEGORIES.includes(doc.category)) {
       errors.push(`category must be one of: ${CATEGORIES.join(', ')} (this is the program FORMAT, not the subject -- subjects like "Sports"/"Art" belong in activityTypes)`);
     }
@@ -464,6 +470,13 @@ class SchemaMapper {
       for (const tag of doc.dayTimeTags) {
         if (!DAY_TAGS.includes(tag)) {
           errors.push(`dayTimeTags entry not in the closed vocabulary (${DAY_TAGS.join(', ')}): ${tag}`);
+        }
+      }
+    }
+    if (Array.isArray(doc.contactLinks)) {
+      for (const link of doc.contactLinks) {
+        if (!link || !CONTACT_LINK_TYPES.includes(link.type)) {
+          errors.push(`contactLinks[].type not in the closed vocabulary (${CONTACT_LINK_TYPES.join(', ')}): ${link && link.type}`);
         }
       }
     }

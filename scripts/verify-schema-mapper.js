@@ -231,6 +231,27 @@ check("validateForTenant('classscout') still accepts a patch that OMITS image en
   assert.deepStrictEqual(result.errors, []);
 });
 
+check("validateForTenant('classscout') rejects a contactLinks[].type not in classscout's closed enum (regression: a live 422 on 'linkedin' was NOT caught locally, 2026-08-03)", () => {
+  const payload = mapper.mapToApiPayload(
+    'classscout',
+    { id: sampleProvider.id, contactLinks: [{ type: 'linkedin', value: 'https://linkedin.com/company/example' }] },
+    'put'
+  );
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('contactLinks[].type')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') accepts every real contactLinks[].type value classscout's live schema allows", () => {
+  const validTypes = ['website', 'registration', 'email', 'phone', 'instagram', 'facebook', 'other'];
+  const payload = mapper.mapToApiPayload(
+    'classscout',
+    { id: sampleProvider.id, contactLinks: validTypes.map((type) => ({ type, value: 'x' })) },
+    'put'
+  );
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(!result.errors.some((e) => e.includes('contactLinks')), result.errors.join('; '));
+});
+
 // --- runtime/verifier/response-based.js ---
 check('verifyFromIngestResponse does NOT confirm a batch when the API silently dropped an operation (regression: results.length < expectedIds.length used to pass via vacuous .every())', () => {
   const result = verifyFromIngestResponse({
