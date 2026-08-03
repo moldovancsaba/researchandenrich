@@ -478,6 +478,13 @@ class SchemaMapper {
         if (!link || !CONTACT_LINK_TYPES.includes(link.type)) {
           errors.push(`contactLinks[].type not in the closed vocabulary (${CONTACT_LINK_TYPES.join(', ')}): ${link && link.type}`);
         }
+        // Confirmed against a real live 422 rejection (2026-08-03,
+        // "contactLinks.0.label: Required"): classscout's server-side schema
+        // requires a non-empty `label` per entry in addition to `type`/`value`,
+        // and this was not previously checked locally.
+        if (link && (typeof link.label !== 'string' || link.label.trim() === '')) {
+          errors.push(`contactLinks[].label is required and must be a non-empty string: ${link && link.label}`);
+        }
       }
     }
     // No exemption for an explicitly-empty string: `image` is hard-required on every

@@ -245,7 +245,27 @@ check("validateForTenant('classscout') accepts every real contactLinks[].type va
   const validTypes = ['website', 'registration', 'email', 'phone', 'instagram', 'facebook', 'other'];
   const payload = mapper.mapToApiPayload(
     'classscout',
-    { id: sampleProvider.id, contactLinks: validTypes.map((type) => ({ type, value: 'x' })) },
+    { id: sampleProvider.id, contactLinks: validTypes.map((type) => ({ type, label: type, value: 'x' })) },
+    'put'
+  );
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(!result.errors.some((e) => e.includes('contactLinks')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects a contactLinks[] entry missing label (regression: a live 422 on 'contactLinks.0.label: Required' was NOT caught locally, 2026-08-03)", () => {
+  const payload = mapper.mapToApiPayload(
+    'classscout',
+    { id: sampleProvider.id, contactLinks: [{ type: 'instagram', value: 'https://instagram.com/example' }] },
+    'put'
+  );
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('contactLinks[].label')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') accepts a contactLinks[] entry with a non-empty label", () => {
+  const payload = mapper.mapToApiPayload(
+    'classscout',
+    { id: sampleProvider.id, contactLinks: [{ type: 'instagram', label: 'Instagram', value: 'https://instagram.com/example' }] },
     'put'
   );
   const result = mapper.validateForTenant('classscout', payload);

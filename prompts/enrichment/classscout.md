@@ -53,17 +53,23 @@
 
 ## Field Priority List (enrichment order)
 1. **contactLinks** — find additional typed contact links (registration
-   page, Instagram, Facebook) beyond what's already recorded. Each entry's
-   `type` is a **closed server-side enum** — one of exactly: `website`,
-   `registration`, `email`, `phone`, `instagram`, `facebook`, `other`. A
-   plausible-looking value outside this list (e.g. `linkedin`, `twitter`,
-   `x`) is rejected at write time with a 422 — use `type: "other"` instead.
-   (Confirmed by a real live 422 rejection, 2026-08-03: `type: "linkedin"`
-   failed server-side.) When patching this array, resend the FULL array
-   (existing entries plus new ones), not just the new entries — patch-merge
-   semantics for array fields are undocumented, and a partial array risks
-   silently dropping an existing contact link (e.g. an existing verified
-   email link) rather than adding to it.
+   page, Instagram, Facebook) beyond what's already recorded. Each entry
+   requires **both** of the following, or the write is rejected:
+   - `type` is a **closed server-side enum** — one of exactly: `website`,
+     `registration`, `email`, `phone`, `instagram`, `facebook`, `other`. A
+     plausible-looking value outside this list (e.g. `linkedin`, `twitter`,
+     `x`) is rejected at write time with a 422 — use `type: "other"` instead.
+     (Confirmed by a real live 422 rejection, 2026-08-03: `type: "linkedin"`
+     failed server-side.)
+   - `label` — a non-empty display string (e.g. `"Instagram"`, `"YouTube"`).
+     Omitting it is rejected at write time with a 422
+     (`contactLinks.0.label: Required`). (Confirmed by a real live 422
+     rejection, 2026-08-03, on a create attempt.)
+   When patching this array, resend the FULL array (existing entries plus
+   new ones, each with both `type` and `label` intact), not just the new
+   entries — patch-merge semantics for array fields are undocumented, and a
+   partial array risks silently dropping an existing contact link (e.g. an
+   existing verified email link) rather than adding to it.
 2. **email** / **phone** — find or verify additional contact methods
 3. **activityTypes** — add subjects/activities missed on first pass
 4. **ageRanges** — refine into the closed 5-bucket en-dash vocabulary
