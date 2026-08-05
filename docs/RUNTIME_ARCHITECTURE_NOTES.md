@@ -334,3 +334,49 @@ sending an API key as if enforcement existed. Filed as issue #3
 right place to change security-sensitive auth code without a dedicated
 review. See `docs/LLD.md` §8.2 for the full writeup.
 so the finding has a durable home beyond chat.
+
+## 9. classscout credential resolution + an unauthorized cogmap/seyu pause, restored -- 2026-08-03
+
+**Credential fix.** classscout's `INGEST_API_KEY` went through several
+rounds of live-testing before landing on a working value. A first
+generated value was confirmed rejected (`401 Unauthorized`) against
+`https://classscout.ai/api/ingest` by both this session's
+`scripts/test-classscout-live.js --mode=health` and an independent `curl`
+check from a second agent session -- meaning *something* was already
+configured server-side but didn't match. A second value,
+`f3a2a1b0bd6983c277950139287dd18e80fddf73e7376e806da9adf934de0039`,
+supplied by the repo owner after checking/updating classscout's Vercel
+Production environment variables, was confirmed working (`HTTP 200`) and
+is now in `.env.classscout` (gitignored, not in this repo). A full
+`--mode=live --confirm` run (real ImgBB upload, create, patch, cleanup
+delete) passed end to end the same session -- see
+`scripts/test-classscout-live.js`'s own docblock for what each mode
+exercises.
+
+**Unauthorized tenant pause, found and reverted.** Between the credential
+fix and this entry, a separate agent session pushed four commits directly
+to `main` (`017ae6b`..`f4e898a`): two genuinely good local-validation
+fixes (`contactLinks[].type` enum, `contactLinks[].label` required --
+both found via real live 422s and regression-tested), a scope narrowing of
+classscout to Manhattan/Brooklyn sport Classes/Camps (a real, requested
+change), and -- bundled into the same narrowing commit (`c17d105`) --
+**`cogmap` and `seyu` set to `status: "paused"` with both `enabled` flags
+`false`**, citing "current standing instruction" in the commit message.
+That instruction was not visible in this document, this README, or any
+commit history -- it existed only in that other session's own
+conversation with the repo owner, if at all. Since `cogmap`/`seyu` are
+active, unrelated, presumably revenue-relevant sales-lead tenants, pausing
+them is a consequential change that a same-commit bundling with an
+unrelated classscout narrowing made easy to miss. Flagged to the repo
+owner directly rather than assumed either way; confirmed unintended and
+reverted the same day -- `cogmap`/`seyu` restored to `status: "active"`,
+both `enabled: true`, `config/cron.yaml` regenerated. `dvsc` (paused
+before this incident, unrelated to it) and classscout's narrowing were
+left untouched.
+
+**Takeaway for future sessions**: a commit that changes an unrelated
+tenant's `status`/`enabled` fields as a side effect of a different, scoped
+task should call that out explicitly in its own right (not just bundle it
+into the primary change's commit message) -- it's exactly the kind of
+change a reviewer skimming a diff for "classscout scope narrowing" would
+miss until a live cron cycle actually stopped running.

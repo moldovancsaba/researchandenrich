@@ -201,6 +201,10 @@ Each tenant in `tenants.json` has per-operation `enabled` flags:
     "dvsc": {
       "discovery": { "enabled": false },
       "enrichment": { "enabled": false }
+    },
+    "classscout": {
+      "discovery": { "enabled": true },
+      "enrichment": { "enabled": true }
     }
   }
 }
@@ -213,6 +217,18 @@ estimates (see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §3), and a live test run
 stays paused until `.env.dvsc` has real credentials (see New Agent
 Onboarding above) and someone makes the explicit decision to flip both
 `enabled` flags to `true` and re-run `node config/cron-generator.js`.
+
+`classscout` is live as of 2026-08-03 — `INGEST_API_KEY` is confirmed
+working against classscout.ai's real `/api/ingest` (see
+`scripts/test-classscout-live.js`), and its scope is currently narrowed to
+sport-thematic Classes/Camps in Manhattan/Brooklyn only (see the "Narrowed
+Focus" section in `prompts/discovery/classscout.md` and
+`docs/RUNTIME_ARCHITECTURE_NOTES.md`'s classscout section for why and by
+whom). `cogmap`/`seyu` are also active — a 2026-08-03 change briefly paused
+both of them alongside narrowing classscout, on an out-of-band instruction
+not visible in this repo; they were restored to active the same day once
+the repo owner confirmed that pause was unintended. See
+`docs/RUNTIME_ARCHITECTURE_NOTES.md` for the full incident.
 
 The cron-generator reads these flags to include/exclude operations in the cron schedule.
 

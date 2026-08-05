@@ -3,7 +3,7 @@
     "cogmap": {
       "app": "researchandenrich",
       "displayName": "CogMap",
-      "status": "paused",
+      "status": "active",
       "apiBase": "https://salesleadgenerator.vercel.app",
       "board": "cogmap",
       "scope": "US large cities and neighborhoods; youth soccer clubs with 500+ players; professional club academies including MLS, USL, NWSL, CPL, and European academies",
@@ -22,7 +22,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": false
+        "enabled": true
       },
       "enrichment": {
         "prompt": "prompts/enrichment/cogmap.md",
@@ -31,13 +31,13 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": false
+        "enabled": true
       }
     },
     "seyu": {
       "app": "researchandenrich",
       "displayName": "Seyu",
-      "status": "paused",
+      "status": "active",
       "apiBase": "https://salesleadgenerator.vercel.app",
       "board": "seyu",
       "scope": "Sports clubs, leagues, federations with live events; entertainment venues and live-event promoters; sports media and broadcasters; sports-tech and fan-engagement vendors",
@@ -56,7 +56,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": false
+        "enabled": true
       },
       "enrichment": {
         "prompt": "prompts/enrichment/seyu.md",
@@ -65,7 +65,7 @@
           "everyMs": 2700000
         },
         "mode": "feeder",
-        "enabled": false
+        "enabled": true
       }
     },
     "dvsc": {
