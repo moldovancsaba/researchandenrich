@@ -114,7 +114,13 @@ tenant-specific instructions elsewhere:
    it hasn't been installed yet (its `node_modules` is gitignored).
 7. `config/cron.yaml` is generated, not hand-edited. If a tenant's schedule
    or enabled flags change, edit `tenants.json` / `workers/<tenantId>/*.yaml`
-   and re-run `node config/cron-generator.js`.
+   and re-run `node config/cron-generator.js`. Worker YAML is genuinely
+   authoritative as of 2026-08-11 — before that a hand-rolled parser silently
+   discarded every nested value, so editing these files had no effect on the
+   output (see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §11). Verify with
+   `node scripts/verify-cron-generator.js`, and use
+   `node config/cron-generator.js --check` to confirm the committed
+   `cron.yaml` is not stale.
 8. Read `docs/RUNTIME_ARCHITECTURE_NOTES.md` for known gaps and prior
    findings (the dual static-file/Mongo-admin config-source split, bugs
    already found and fixed, live-test results) before assuming anything

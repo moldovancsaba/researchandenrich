@@ -424,3 +424,55 @@ with the direct devDependency; the working form is to raise the
 devDependency to `^8.5.23` and use the dependency-reference override
 `"postcss": "$postcss"`, which dedupes every copy to the root. `next build`
 passes on the overridden version -- verified, not assumed.
+
+## 11. The cron generator ignored its own inputs -- 2026-08-11
+
+`config/cron-generator.js` used a hand-rolled line parser. It flattened every
+nested mapping: `schedule:`, `retry:` and `healthCheck:` each produced an empty
+object while their children were hoisted to the document root. Verified by
+running the generator's own exported `discoverWorkers()` against
+`workers/cogmap/discovery.yaml`:
+
+```
+schedule: {}          kind: "every"        <- hoisted
+retry: {}             everyMs: 2700000     <- hoisted
+healthCheck: {}       maxAttempts: 3       <- hoisted
+dependencies: [""]    endpoint: "GET ..."  <- hoisted
+```
+
+Consequences: `workerConfig.schedule?.cron` was **always** `undefined`, so every
+entry fell through to the hardcoded `*/45 * * * *` fallback; `retry` was `{}`
+(truthy) so its values were silently defaulted; `healthCheck` was never read at
+all; and `dependencies: []` parsed as a one-element array containing an empty
+string.
+
+**Editing `workers/<tenant>/*.yaml` therefore had no effect on `config/cron.yaml`**
+-- which is precisely what `README.md` onboarding step 7 and Definition-of-Done
+item 2 instruct an operator to do. It went unnoticed because the hardcoded
+fallback happened to equal what every worker file specified. The file's own
+comment said "For production, use a proper YAML library like js-yaml".
+
+Parsing now uses `js-yaml` with `JSON_SCHEMA` passed explicitly, so no custom
+type construction can ever be enabled by a future default change. Worker configs
+are validated on load and fail with the file path and offending key named.
+`node config/cron-generator.js --check` exits non-zero when the committed
+`cron.yaml` is stale, making Definition-of-Done item 2 mechanically enforceable.
+Regression coverage: `node scripts/verify-cron-generator.js` (26 checks). The
+load-bearing ones assert that a *changed* worker schedule reaches the output --
+asserting output shape alone would have passed against the broken parser, which
+is why this survived.
+
+**`*/45 * * * *` does not mean "every 45 minutes".** Every worker file specifies
+`everyMs: 2700000`, and 60 is not divisible by 45, so the emitted expression
+fires at minute 0 and minute 45 of each hour: a 45-minute gap followed by a
+15-minute one. That uneven cadence is what has been running in production. The
+generator deliberately keeps emitting the legacy form and warns loudly with the
+real firing pattern rather than silently changing live scheduling. Resolving it
+-- change the interval to an expressible value, declare `schedule.cron`
+explicitly, or confirm the consumer takes `everyMs` natively -- is an owner
+decision and remains **open**.
+
+Emitted output is byte-identical to the pre-change file; `config/cron.yaml` did
+not need regeneration. `dependencies` and `healthCheck` are now readable but are
+still not emitted: adding keys would change a contract consumed by the OpenClaw
+runtime, which cannot be verified from inside this repo.
