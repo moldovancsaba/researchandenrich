@@ -289,6 +289,77 @@ check('verifyFromIngestResponse confirms a batch when every expected result came
   assert.strictEqual(result.confirmed, true);
 });
 
+
+// ---------------------------------------------------------------------------
+// getApiEndpoint: identifier encoding and validation (issue #24)
+//
+// `id` reaches this function from an agent-produced record assembled from
+// web-sourced content. Unencoded interpolation let it alter the request path
+// or inject query parameters into a call carrying SLG_API_KEY -- including
+// suppressing ?brand=, which salesleadgenerator defaults to 'cogmap', so a
+// seyu or dvsc write would silently land in cogmap's collection.
+// ---------------------------------------------------------------------------
+
+const { InvalidIdentifierError } = require('../schema-mapper');
+
+check('getApiEndpoint output is unchanged for legitimate identifiers', () => {
+  assert.strictEqual(
+    mapper.getApiEndpoint('seyu', 'put', '507f1f77bcf86cd799439011'),
+    'https://salesleadgenerator.vercel.app/api/leads/507f1f77bcf86cd799439011?brand=seyu');
+  assert.strictEqual(
+    mapper.getApiEndpoint('cogmap', 'list'),
+    'https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&limit=1000');
+  assert.strictEqual(
+    mapper.getApiEndpoint('dvsc', 'post'),
+    'https://salesleadgenerator.vercel.app/api/leads?brand=dvsc');
+  assert.strictEqual(
+    mapper.getApiEndpoint('classscout', 'post'),
+    'https://classscout.ai/api/ingest');
+});
+
+check('getApiEndpoint query parameter order is brand then limit', () => {
+  // URLSearchParams follows insertion order; a reordered query would be
+  // equivalent but would produce a confusing diff against recorded run URLs.
+  assert.match(mapper.getApiEndpoint('cogmap', 'list'), /\?brand=cogmap&limit=1000$/);
+});
+
+for (const bad of ['abc?brand=cogmap', 'abc#', '../../admin/x', 'a/b', 'a%2Fb', 'a.b', 'a&b']) {
+  check(`getApiEndpoint rejects a structure-altering id: ${JSON.stringify(bad)}`, () => {
+    assert.throws(() => mapper.getApiEndpoint('seyu', 'put', bad), InvalidIdentifierError);
+  });
+}
+
+for (const bad of [null, undefined, '', 42, {}, []]) {
+  check(`getApiEndpoint rejects a non-string id: ${JSON.stringify(bad) ?? 'undefined'}`, () => {
+    assert.throws(() => mapper.getApiEndpoint('seyu', 'put', bad), InvalidIdentifierError);
+  });
+}
+
+check('getApiEndpoint rejects an id with a leading separator', () => {
+  assert.throws(() => mapper.getApiEndpoint('seyu', 'put', '-abc'), InvalidIdentifierError);
+  assert.throws(() => mapper.getApiEndpoint('seyu', 'put', '_abc'), InvalidIdentifierError);
+});
+
+check('getApiEndpoint accepts 128 chars and rejects 129', () => {
+  assert.ok(mapper.getApiEndpoint('seyu', 'put', 'a'.repeat(128)));
+  assert.throws(() => mapper.getApiEndpoint('seyu', 'put', 'a'.repeat(129)),
+    InvalidIdentifierError);
+});
+
+check("getApiEndpoint accepts classscout's prov-<slug> id form", () => {
+  assert.ok(mapper.getApiEndpoint('cogmap', 'get', 'prov-brooklyn-soccer-academy'));
+});
+
+check('getApiEndpoint still throws for list/get on program-api', () => {
+  assert.throws(() => mapper.getApiEndpoint('classscout', 'list'), /no ingest-credential-readable/);
+  assert.throws(() => mapper.getApiEndpoint('classscout', 'get', 'prov-x'),
+    /no ingest-credential-readable/);
+});
+
+check('getApiEndpoint still throws for an unknown action', () => {
+  assert.throws(() => mapper.getApiEndpoint('cogmap', 'frobnicate'), /Unknown action/);
+});
+
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {
   console.error('FAILURES ABOVE');
