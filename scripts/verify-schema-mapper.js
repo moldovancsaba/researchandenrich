@@ -492,6 +492,106 @@ check('qualityGate.requiredFields resolve against the extracted document', () =>
     JSON.stringify(result.errors));
 });
 
+
+// ---------------------------------------------------------------------------
+// Lead validator shape hardening (issue #26)
+//
+// _validateLead pushed a shape error for a non-array `contacts` and then
+// iterated it anyway, so `contacts: {}` threw "not iterable" and aborted the
+// whole batch run rather than rejecting one record. _standardizeContacts had
+// the same class of defect and runs EARLIER (inside mapToApiPayload, on raw
+// agent output), so it was the first throw site.
+//
+// `contacts: "a@b.c"` is the nastiest case: a string is iterable, so it did
+// not throw -- it iterated characters, found no .email on any of them, and
+// reported valid. A false pass.
+// ---------------------------------------------------------------------------
+
+const MALFORMED_CONTACTS = [
+  [{}, 'contacts must be an array'],
+  ['a@b.c', 'contacts must be an array'],
+  [[null], 'contacts[0] must be an object'],
+  [[42], 'contacts[0] must be an object'],
+  [['a@b.c'], 'contacts[0] must be an object'],
+  [[{ email: 42 }], 'contacts[0].email must be a string'],
+  [[{ email: {} }], 'contacts[0].email must be a string'],
+];
+
+for (const [value, expected] of MALFORMED_CONTACTS) {
+  check(`_validateLead reports rather than throws for contacts: ${JSON.stringify(value)}`, () => {
+    const result = mapper.validateForTenant('cogmap', { contacts: value });
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.includes(expected),
+      `expected "${expected}", got ${JSON.stringify(result.errors)}`);
+  });
+}
+
+check('contacts: "a@b.c" is rejected (was a silent false pass)', () => {
+  const result = mapper.validateForTenant('cogmap', { contacts: 'a@b.c' });
+  assert.strictEqual(result.valid, false, 'a string contacts value passed validation');
+});
+
+check('legitimate empty contact states remain valid', () => {
+  for (const value of [[], [{}], [{ email: null }], [{ email: '' }]]) {
+    const result = mapper.validateForTenant('cogmap', { contacts: value });
+    assert.strictEqual(result.valid, true,
+      `${JSON.stringify(value)} -> ${JSON.stringify(result.errors)}`);
+  }
+});
+
+check('a malformed entry does not stop later entries being checked', () => {
+  const result = mapper.validateForTenant('cogmap',
+    { contacts: [null, { email: 'A@B.C' }] });
+  assert.ok(result.errors.includes('contacts[0] must be an object'));
+  assert.ok(result.errors.some((e) => e.startsWith('Email not lowercase:')),
+    JSON.stringify(result.errors));
+});
+
+check('contact_phone shape is guarded before startsWith', () => {
+  const bad = mapper.validateForTenant('cogmap', { contact_phone: 42 });
+  assert.ok(bad.errors.includes('contact_phone must be a string'));
+  const empty = mapper.validateForTenant('cogmap', { contact_phone: '' });
+  assert.strictEqual(empty.valid, true, 'empty phone should be skipped, as before');
+  const national = mapper.validateForTenant('cogmap', { contact_phone: '0361234' });
+  assert.ok(national.errors.some((e) => e.startsWith('Phone not in international format:')));
+});
+
+check('_standardizeContacts never throws on any malformed contacts shape', () => {
+  for (const value of [{}, 'a@b.c', [null], [42], [{ email: 42 }], [{ email: null }]]) {
+    mapper.mapToApiPayload('cogmap', { contacts: value });
+  }
+});
+
+check('_standardizeContacts leaves a non-string email untouched rather than repairing it', () => {
+  const out = mapper.mapToApiPayload('cogmap', { contacts: [{ email: 42 }] });
+  assert.strictEqual(out.contacts[0].email, 42);
+});
+
+check('_standardizeContacts still lowercases well-formed emails', () => {
+  const out = mapper.mapToApiPayload('cogmap', { contacts: [{ email: 'A@B.C' }] });
+  assert.strictEqual(out.contacts[0].email, 'a@b.c');
+});
+
+check('validateForTenant never throws across a fuzz of payload shapes', () => {
+  const values = [
+    undefined, null, 0, 1, '', 'x', true, false, [], {}, [[]], [{}], [null],
+    { contacts: null }, { contacts: 0 }, { contacts: [[]] },
+    { contact_phone: [] }, { contact_phone: {} },
+    { pro_for_organization: 42 }, { estimated_participants: 'many' },
+    { recommended_tier: 42 }, { revenue_model: [] },
+  ];
+  for (const tenantId of ['cogmap', 'seyu', 'dvsc', 'classscout']) {
+    for (const payload of values) {
+      try {
+        mapper.validateForTenant(tenantId, payload);
+      } catch (err) {
+        throw new Error(
+          `threw for ${tenantId} with ${JSON.stringify(payload)}: ${err.message}`);
+      }
+    }
+  }
+});
+
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {
   console.error('FAILURES ABOVE');
