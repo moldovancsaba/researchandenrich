@@ -6,7 +6,7 @@
  * are unreliable and must not be used for verification.
  */
 
-const VERIFICATION_ERRORS = new Set();
+const { parseEndpoint, buildUrl } = require('../shared/endpoint');
 
 /**
  * Fetch a single record and verify the write succeeded
@@ -18,12 +18,15 @@ const VERIFICATION_ERRORS = new Set();
  * @param {string} params.recordId - The _id of the record just written/updated
  * @param {string} params.collectionType - 'leads' or 'programs'
  * @param {string} params.apiKey - The API key for x-api-key header
- * @param {number} params.expectedCount - Minimum expected count in list to confirm record exists
  * @returns {Promise<object>} Verification result with confirmed boolean and details
  */
-async function verifyViaList({ apiBase, brand, recordId, collectionType, apiKey, expectedCount = 1 }) {
-  const path = collectionType === 'leads' ? `/api/leads?brand=${brand}&limit=1000` : `/api/programs?limit=100`;
-  const url = apiBase + path;
+async function verifyViaList({ apiBase, brand, recordId, collectionType, apiKey }) {
+  // brand is encoded: an unencoded value containing & or = would inject query
+  // parameters into a request that carries SLG_API_KEY.
+  const path = collectionType === 'leads'
+    ? `/api/leads?brand=${encodeURIComponent(brand)}&limit=1000`
+    : `/api/programs?limit=100`;
+  const url = buildUrl(apiBase, path);
 
   try {
     const response = await fetch(url, {
@@ -97,41 +100,74 @@ async function verifyBatchViaList({ apiBase, brand, recordIds, collectionType, a
 /**
  * Quick health check against the API.
  *
+ * The `failure` discriminator matters: previously every failure mode collapsed
+ * to `healthy: false`, so a malformed endpoint string and a genuine outage were
+ * the same signal -- which is why this function's URL-construction bug survived.
+ * `configuration` and `unexpected-status` are NOT retryable; `network` and
+ * `timeout` are.
+ *
  * @param {object} params
  * @param {string} params.apiBase
- * @param {string} params.endpoint - e.g. GET /api/leads?brand=cogmap&limit=1
+ * @param {string} params.endpoint - e.g. "GET /api/leads?brand=cogmap&limit=1"
  * @param {string} params.apiKey
  * @param {number} [params.expectedStatus=200]
- * @returns {Promise<object>} Health check result
+ * @param {number} [params.timeoutMs=10000]
+ * @returns {Promise<object>} { healthy, status, expectedStatus, durationMs, error, failure, url }
  */
-async function healthCheck({ apiBase, endpoint, apiKey, expectedStatus = 200 }) {
+async function healthCheck({ apiBase, endpoint, apiKey, expectedStatus = 200, timeoutMs = 10000 }) {
   const startTime = Date.now();
 
+  let url;
+  let method;
   try {
-    const response = await fetch(apiBase + endpoint, {
-      headers: {
-        'x-api-key': apiKey,
-        'content-type': 'application/json',
-      },
-    });
-    const duration = Date.now() - startTime;
-
-    const status = response.status === expectedStatus ? 'ok' : 'unexpected-status';
-    return {
-      healthy: response.status === expectedStatus,
-      status: response.status,
-      expectedStatus,
-      durationMs: duration,
-      error: null,
-    };
+    const parsed = parseEndpoint(endpoint);
+    method = parsed.method;
+    url = buildUrl(apiBase, parsed.path);
   } catch (err) {
-    const duration = Date.now() - startTime;
     return {
       healthy: false,
       status: 0,
       expectedStatus,
-      durationMs: duration,
+      durationMs: Date.now() - startTime,
       error: err.message,
+      failure: 'configuration',
+    };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'x-api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const healthy = response.status === expectedStatus;
+    return {
+      healthy,
+      status: response.status,
+      expectedStatus,
+      durationMs: Date.now() - startTime,
+      error: healthy ? null : `expected ${expectedStatus}, received ${response.status}`,
+      failure: healthy ? null : 'unexpected-status',
+      url,
+    };
+  } catch (err) {
+    clearTimeout(timer);
+    const timedOut = err.name === 'AbortError';
+    return {
+      healthy: false,
+      status: 0,
+      expectedStatus,
+      durationMs: Date.now() - startTime,
+      error: timedOut ? `timed out after ${timeoutMs}ms` : err.message,
+      failure: timedOut ? 'timeout' : 'network',
+      url,
     };
   }
 }

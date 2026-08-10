@@ -476,3 +476,50 @@ Emitted output is byte-identical to the pre-change file; `config/cron.yaml` did
 not need regeneration. `dependencies` and `healthCheck` are now readable but are
 still not emitted: adding keys would change a contract consumed by the OpenClaw
 runtime, which cannot be verified from inside this repo.
+
+## 12. list-based health checks never worked -- 2026-08-11
+
+`runtime/verifier/list-based.js#healthCheck()` concatenated `apiBase + endpoint`
+without stripping the HTTP verb. Every producer of that string in this repo emits
+the verb-prefixed form -- `apps.yaml`'s `healthCheckTemplate`,
+`app/api/admin/queue/route.ts`, and every `workers/<tenant>/*.yaml` all write
+`GET /api/leads?brand=<tenant>&limit=1`. The result was
+`https://salesleadgenerator.vercel.appGET /api/leads?...`, which throws on
+`fetch`, was caught by the function's own `try/catch`, and was returned as
+`{ healthy: false }`.
+
+So health checks for `cogmap`, `seyu` and `dvsc` have always reported unhealthy,
+indistinguishable from a genuine outage. `classscout`'s worked, because
+`response-based.js` stripped the verb with a local
+`endpoint.replace(/^GET\s+/, '')` -- which made the defect present as a
+tenant-specific infrastructure problem rather than a code defect.
+
+That local regex was itself verb-specific and would have failed silently on any
+non-GET prefix. Both verifiers now share `runtime/shared/endpoint.js`
+(`parseEndpoint` + `buildUrl`), so they cannot drift again, and the parsed verb
+is used as the request method rather than discarded.
+
+`healthCheck` now returns a `failure` discriminator:
+`configuration | network | timeout | unexpected-status`. This is the substantive
+part. Previously every failure mode collapsed to `healthy: false`, which is
+exactly why a malformed URL was indistinguishable from an outage and survived
+this long. `configuration` and `unexpected-status` are not retryable;
+`network` and `timeout` are. The resolved `url` is returned for diagnostics --
+the single piece of information that would have exposed this immediately.
+
+Also in this change: `healthCheck` gained a `timeoutMs` bound (default 10000,
+matching `runtime/shared/http-client.js`) -- it previously used bare `fetch`
+with no timeout, so an unresponsive API could hang the calling worker
+indefinitely. `verifyViaList` now percent-encodes `brand`; an unencoded value
+containing `&` or `=` would inject query parameters into a request carrying
+`SLG_API_KEY`. Dead code removed: the unused `VERIFICATION_ERRORS` set, the
+unused `expectedCount` parameter, and an unused `status` local.
+
+Result keys are additive -- `healthy`, `status`, `expectedStatus`, `durationMs`
+and `error` keep their names and meanings, so existing consumers are unaffected.
+Regression coverage: `node scripts/verify-runtime.js` (23 checks), including one
+that runs the literal `apps.yaml` template string. Network cases use a local
+stub server, so the suite needs no credentials and no internet.
+
+**Not covered:** this verifies reachability and status code only. A `200`
+carrying an error payload is still reported healthy.
