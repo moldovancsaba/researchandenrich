@@ -236,6 +236,19 @@ The cron-generator reads these flags to include/exclude operations in the cron s
 
 Deployed on Vercel as a Next.js App Router project. The `vercel.json` is empty (`{}`) so Vercel auto-detects the framework. The build command is `next build` and the dev command is `next dev`.
 
+Node `>=20.9.0` is required (`engines.node`). Install with `npm ci` — the
+lockfile is authoritative and in sync as of 2026-08-10.
+
+**Dependency policy.** Run `npm run audit` (`npm audit --omit=dev`) before
+any dependency change. One advisory is currently **open and accepted**:
+`next` reports a high-severity set whose only fix is `next@16.3.0`, a
+breaking major — no 14.x release closes it. See
+`docs/RUNTIME_ARCHITECTURE_NOTES.md` §10 for what it covers and why the
+major migration is tracked separately. `postcss` is held at `^8.5.23`
+through a dependency-reference override (`"postcss": "$postcss"`) to
+deduplicate the vulnerable copy Next.js pins internally; do not remove the
+override without re-running the audit.
+
 The admin UI at `/admin` provides a dashboard for managing apps, tenants, and the job queue. API routes at `/api/admin/*` handle CRUD operations (API key required). The landing page at `/` links to the admin panel and health check.
 
 ## Prohibited

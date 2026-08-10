@@ -380,3 +380,47 @@ task should call that out explicitly in its own right (not just bundle it
 into the primary change's commit message) -- it's exactly the kind of
 change a reviewer skimming a diff for "classscout scope narrowing" would
 miss until a live cron cycle actually stopped running.
+
+## 10. Dependency state: lockfile was unusable, and Next.js 14 cannot clear its advisories -- 2026-08-10
+
+Three findings from patching the framework (issue #12). All verified by
+running the commands, not by reading the manifests.
+
+**The committed lockfile could not be installed.** `npm ci` failed outright
+with `EUSAGE`: `package.json` and `package-lock.json` were out of sync
+(`Missing: vite@8.2.1`, `Missing: rolldown@1.2.3`, `Missing:
+lightningcss@1.33.0`, plus `postcss`/`nanoid` version conflicts). Anyone
+following README's "clone this repo" onboarding step 1 and then installing
+would have hit this. The cause was `@tailwindcss/vite@^4.3.3` sitting in
+`dependencies` while nothing in the repo referenced it -- confirmed by a
+repo-wide grep returning only the `package.json` line itself. This project
+uses Next's PostCSS pipeline (`postcss.config.js` -> `tailwindcss` +
+`autoprefixer`), not Vite. Removing it dropped `vite`, `rolldown`,
+`lightningcss`, and their platform binaries from the tree and restored
+`npm ci`.
+
+**`next` was pinned exactly at `14.2.0`**, so `npm update` was never going
+to move it. Now `^14.2.35`.
+
+**Next.js 14 cannot reach a clean audit.** Upgrading to `14.2.35` cleared
+the critical advisory and, with `nanoid` fixed, took the count from
+1 critical + 2 high to 1 high. The remaining `next` advisory reports its
+vulnerable range as `9.3.4-canary.0 - 16.3.0-preview.10` with
+`fixAvailable: { version: "16.3.0", isSemVerMajor: true }` -- **no 14.x
+release fixes it.** It covers HTTP request smuggling in rewrites, DoS via
+the Image Optimizer's `remotePatterns`, RSC request-deserialization DoS,
+and cache poisoning. Closing it requires the Next.js 16 major migration,
+which is deliberately out of scope here and is tracked separately. This
+repo's exposure is reduced by the App Router routes being `force-dynamic`
+and by the deployment sitting behind Vercel's edge, but the advisory is
+open and should be recorded as accepted risk, not as resolved.
+
+**Nested `postcss` was resolved without the major.** `next@14.2.35` pins
+`postcss@8.4.31` in its own `node_modules`, which carries four high
+advisories (arbitrary file read via attacker-controlled
+`sourceMappingURL`, path traversal, XSS in stringify output). A direct
+`overrides: { "postcss": "^8.5.23" }` is rejected by npm as conflicting
+with the direct devDependency; the working form is to raise the
+devDependency to `^8.5.23` and use the dependency-reference override
+`"postcss": "$postcss"`, which dedupes every copy to the root. `next build`
+passes on the overridden version -- verified, not assumed.
