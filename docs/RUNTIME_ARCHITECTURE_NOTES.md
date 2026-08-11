@@ -929,3 +929,61 @@ Build, typecheck and all six suites pass with GDS installed; the audit gate
 remains green with one baselined advisory. No UI has been migrated yet: that is
 issues #14 and #22, and it is a rebuild of both admin pages rather than a
 dependency swap.
+
+## 20. Queue control plane: the toggle never did anything -- 2026-08-11
+
+Server side of issue #22. Three defects in `app/api/admin/queue/route.ts`.
+
+**The toggle was inert.** `PATCH` wrote `<operation>.schedule.enabled`; `GET`
+derived each job's `enabled` from `tenant.status` alone and never read that
+field. The operator toggled a job, the API returned `200 { jobId, enabled }`,
+the UI reported success, the value was persisted -- and nothing consumed it, so
+the next page load showed the original state. A control that reports success and
+changes nothing is worse than an absent one, because it is acted upon.
+
+`PATCH` now writes `<operation>.enabled`, which `GET` reads. That shape mirrors
+`tenants.json` exactly (`status` plus per-operation `enabled`), so the two
+config sources become directly comparable -- a precondition for ever reconciling
+them (issue #8) rather than diverging further.
+
+`GET` returns `enabled` (effective), `operationEnabled` and `tenantStatus`
+separately. Without both inputs a UI cannot distinguish "you turned this off"
+from "the tenant is paused, so it cannot run" -- two states that rendered
+identically before.
+
+**Reorder could erase a schedule.** `PUT` did
+`$set: { [scheduleField]: { ...(job.schedule || {}) } }`, so a reorder request
+omitting `schedule` replaced the tenant's schedule with `{}`. The body now
+accepts `id` and `sortOrder` only and explicitly rejects `schedule`, `enabled`,
+`prompt` and `tenantId`; rejecting the fields it must not modify is what makes
+the erasure unreachable rather than merely unlikely.
+
+**Reorder reported attempted writes, not applied ones.** It returned
+`updated: updates.length` -- the length of the operation array -- so a reorder
+naming a nonexistent tenant reported success for it. Now a single `bulkWrite`
+returning `matchedCount`/`modifiedCount` from the driver, with the whole batch
+validated (including tenant existence) before any write, so a reorder is
+all-or-nothing rather than partially applied.
+
+`parseJobId` is type-guarded: a non-string `job.id` previously reached
+`.match()` and threw a `TypeError` that surfaced as a generic 500. The tenant
+segment is validated against the identifier pattern, so a crafted job id cannot
+reach a query document.
+
+`scripts/migrate-queue-enabled.js` lifts stale `schedule.enabled` values to
+`<operation>.enabled`. It is idempotent and reversible (`--down`), and **halts
+on disagreement** rather than choosing: where both fields exist and differ,
+silently picking one could enable a tenant the operator believes is paused --
+the failure class behind the §9 incident. Those documents are reported for a
+human decision. It has NOT been run against the live database.
+
+Coverage: `scripts/verify-queue.js`, 23 checks, including a `status` x `enabled`
+truth table and structural assertions that the route does not reintroduce any of
+the three defects. One of those structural checks initially fired on the route's
+own docblock -- which names the defective field while explaining that it is no
+longer written -- so comments are stripped before matching, with a guard
+asserting the stripping did not remove real code.
+
+**UI unchanged.** `app/admin/queue/page.tsx` still sends no credential and still
+has a pointer-only reorder. That is the client half of #22 and is not delivered
+here.

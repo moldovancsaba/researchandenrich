@@ -1,218 +1,239 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
+import { effectiveEnabled, parseJobId, REORDER_FORBIDDEN_FIELDS, type Operation } from '../../../../lib/queue-core'
+import {
+  withErrorHandling,
+  errorResponse,
+  validationError,
+  requestId,
+  log,
+} from '../../../../lib/api-response'
 
 const TENANTS_COLLECTION = 'contentcreator_tenants'
+const APPS_COLLECTION = 'contentcreator_apps'
 
 export const dynamic = 'force-dynamic'
 
-function getBrand(request: Request): string {
-  const url = new URL(request.url)
-  const brand = (url.searchParams.get('brand') || '').trim()
-  return brand || 'default'
-}
+function jobFor(tenant: any, operation: Operation, sortIndex: number, appVerifier?: string) {
+  const prefix = `queue-${tenant.tenantId}`
+  const opConfig = tenant[operation] ?? {}
+  const isProgramApi = tenant.schemaFamily === 'program-api'
 
-/**
- * GET /api/admin/queue
- * Returns all active tenants sorted by sortOrder, with their discovery and enrichment jobs.
- * Each tenant produces up to 2 jobs (discovery + enrichment) if status is "active".
- * Paused/disabled tenants produce jobs with enabled=false.
- */
-export async function GET(request: Request) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
-  try {
-    const db = await getDb()
-
-    const tenants = await db.collection(TENANTS_COLLECTION)
-      .find({})
-      .sort({ sortOrder: 1, tenantId: 1 })
-      .toArray()
-
-    const jobs: any[] = []
-    let sortIndex = 0
-
-    for (const tenant of tenants) {
-      const isActive = tenant.status === 'active'
-      const prefix = `queue-${tenant.tenantId}`
-
-      // Discovery job
-      jobs.push({
-        id: `${prefix}-discovery`,
-        tenantId: tenant.tenantId,
-        appId: tenant.appId,
-        operation: 'discovery',
-        enabled: isActive,
-        sortOrder: sortIndex++,
-        prompt: tenant.discovery?.prompt || `prompts/discovery/${tenant.tenantId}.md`,
-        schedule: tenant.discovery?.schedule || { kind: 'every', everyMs: 2700000 },
-        timeoutMs: 300000,
-        retry: { maxAttempts: 3, backoffMs: 5000 },
-        dependencies: [],
-        healthCheck: {
-          endpoint: tenant.appId === 'classscout-api'
-            ? 'GET /api/programs?limit=1'
-            : `GET /api/leads?brand=${tenant.tenantId}&limit=1`,
-          expectedStatus: 200,
-        },
-      })
-
-      // Enrichment job
-      jobs.push({
-        id: `${prefix}-enrichment`,
-        tenantId: tenant.tenantId,
-        appId: tenant.appId,
-        operation: 'enrichment',
-        enabled: isActive,
-        sortOrder: sortIndex++,
-        prompt: tenant.enrichment?.prompt || `prompts/enrichment/${tenant.tenantId}.md`,
-        schedule: tenant.enrichment?.schedule || { kind: 'every', everyMs: 2700000 },
-        timeoutMs: 300000,
-        retry: { maxAttempts: 3, backoffMs: 5000 },
-        dependencies: [`${prefix}-discovery`],
-        healthCheck: {
-          endpoint: tenant.appId === 'classscout-api'
-            ? 'GET /api/programs?limit=1'
-            : `GET /api/leads?brand=${tenant.tenantId}&limit=1`,
-          expectedStatus: 200,
-        },
-      })
-    }
-
-    return NextResponse.json({
-      jobs,
-      totalJobs: jobs.length,
-      activeJobs: jobs.filter((j: any) => j.enabled).length,
-      pausedJobs: jobs.filter((j: any) => !j.enabled).length,
-    })
-  } catch (error: any) {
-    console.error('[API:admin/queue] GET error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
-    )
+  return {
+    id: `${prefix}-${operation}`,
+    tenantId: tenant.tenantId,
+    appId: tenant.appId,
+    operation,
+    // Effective, plus its two inputs, so the UI can explain WHY a job is off
+    // rather than showing an indistinguishable "off".
+    enabled: effectiveEnabled(tenant, operation),
+    operationEnabled: opConfig.enabled !== false,
+    tenantStatus: tenant.status ?? 'paused',
+    sortOrder: tenant.sortOrder ?? sortIndex,
+    prompt: opConfig.prompt || `prompts/${operation}/${tenant.tenantId}.md`,
+    schedule: opConfig.schedule || { kind: 'every', everyMs: 2700000 },
+    timeoutMs: 300000,
+    retry: { maxAttempts: 3, backoffMs: 5000 },
+    dependencies: operation === 'enrichment' ? [`${prefix}-discovery`] : [],
+    healthCheck: {
+      endpoint: isProgramApi
+        ? 'GET /api/ingest'
+        : `GET /api/leads?brand=${encodeURIComponent(tenant.tenantId)}&limit=1`,
+      expectedStatus: 200,
+    },
+    verifier: appVerifier,
   }
 }
 
-/**
- * PUT /api/admin/queue
- * Updates the sortOrder for jobs after drag-and-drop reordering.
- * Body: { jobs: [{ id, sortOrder, enabled }] }
- */
-export async function PUT(request: Request) {
+export const GET = withErrorHandling('/api/admin/queue', async (request) => {
   const authError = requireApiKey(request)
   if (authError) return authError
 
-  try {
-    const body = await request.json()
-    const { jobs } = body
+  const db = await getDb()
+  const tenants = await db
+    .collection(TENANTS_COLLECTION)
+    .find({})
+    .sort({ sortOrder: 1, tenantId: 1 })
+    .toArray()
 
-    if (!Array.isArray(jobs)) {
-      return NextResponse.json(
-        { error: 'jobs array is required' },
-        { status: 400 }
-      )
+  const apps = await db.collection(APPS_COLLECTION).find({}).toArray()
+  const verifierByApp = new Map(apps.map((a: any) => [a.appId, a.verifier]))
+
+  const jobs: any[] = []
+  let sortIndex = 0
+  for (const tenant of tenants) {
+    for (const operation of ['discovery', 'enrichment'] as Operation[]) {
+      jobs.push(jobFor(tenant, operation, sortIndex++, verifierByApp.get(tenant.appId)))
     }
+  }
 
-    const db = await getDb()
+  return NextResponse.json({
+    jobs,
+    totalJobs: jobs.length,
+    activeJobs: jobs.filter((j) => j.enabled).length,
+    pausedJobs: jobs.filter((j) => !j.enabled).length,
+  })
+})
 
-    // Extract tenantId and operation from job id (format: queue-<tenantId>-<operation>)
-    const updates = jobs.map((job: any) => {
-      const match = job.id.match(/^queue-(.+?)-(discovery|enrichment)$/)
-      if (!match) {
-        throw new Error(`Invalid job id format: ${job.id}`)
-      }
-      const tenantId = match[1]
-      const operation = match[2]
-      const scheduleField = operation === 'discovery' ? 'discovery.schedule' : 'enrichment.schedule'
+/**
+ * Reorder only.
+ *
+ * This used to `$set` the whole schedule from `{...(job.schedule || {})}`, so a
+ * reorder request that omitted `schedule` silently erased a tenant's schedule.
+ * The body now accepts `id` and `sortOrder` and nothing else — rejecting the
+ * fields it must not modify is what makes the erasure unreachable.
+ *
+ * Validation covers the whole batch before any write, so a reorder is
+ * all-or-nothing rather than partially applied.
+ */
+export const PUT = withErrorHandling('/api/admin/queue', async (request) => {
+  const authError = requireApiKey(request)
+  if (authError) return authError
 
-      return db.collection(TENANTS_COLLECTION).updateOne(
-        { tenantId },
-        {
-          $set: {
-            [scheduleField]: {
-              ...(job.schedule || {}),
-            },
-            sortOrder: job.sortOrder ?? 0,
-          },
+  const reqId = requestId(request)
+  const body = await request.json().catch(() => null)
+
+  if (!body || typeof body !== 'object' || !Array.isArray((body as any).jobs)) {
+    return validationError(reqId, [{ field: 'jobs', reason: 'must be an array' }])
+  }
+
+  const errors: { field: string; reason: string }[] = []
+  const ops: { tenantId: string; sortOrder: number }[] = []
+
+  ;(body as any).jobs.forEach((job: any, i: number) => {
+    if (job && typeof job === 'object') {
+      for (const forbidden of REORDER_FORBIDDEN_FIELDS) {
+        if (forbidden in job) {
+          errors.push({
+            field: `jobs[${i}].${forbidden}`,
+            reason: 'not an accepted field on reorder',
+          })
         }
-      )
-    })
+      }
+    }
+    const parsed = parseJobId(job?.id)
+    if (!parsed) {
+      errors.push({ field: `jobs[${i}].id`, reason: 'malformed job id' })
+      return
+    }
+    if (!Number.isInteger(job?.sortOrder)) {
+      errors.push({ field: `jobs[${i}].sortOrder`, reason: 'must be an integer' })
+      return
+    }
+    ops.push({ tenantId: parsed.tenantId, sortOrder: job.sortOrder })
+  })
 
-    await Promise.all(updates)
+  if (errors.length > 0) return validationError(reqId, errors)
 
-    return NextResponse.json({ updated: updates.length })
-  } catch (error: any) {
-    console.error('[API:admin/queue] PUT error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
+  const db = await getDb()
+  const known = new Set(
+    (
+      await db
+        .collection(TENANTS_COLLECTION)
+        .find({}, { projection: { tenantId: 1 } })
+        .toArray()
+    ).map((t: any) => t.tenantId)
+  )
+
+  const unknown = ops.filter((o) => !known.has(o.tenantId))
+  if (unknown.length > 0) {
+    return validationError(
+      reqId,
+      unknown.map((o) => ({ field: 'jobs[].id', reason: `tenant '${o.tenantId}' not found` }))
     )
   }
-}
+
+  if (ops.length === 0) {
+    return NextResponse.json({ matched: 0, modified: 0 })
+  }
+
+  // One bulkWrite rather than N parallel updates: a 20-job reorder is one
+  // round trip, and the reported counts come from the driver rather than from
+  // the number of operations attempted.
+  const result = await db.collection(TENANTS_COLLECTION).bulkWrite(
+    ops.map((o) => ({
+      updateOne: {
+        filter: { tenantId: o.tenantId },
+        update: { $set: { sortOrder: o.sortOrder, updatedAt: new Date().toISOString() } },
+      },
+    }))
+  )
+
+  return NextResponse.json({
+    matched: result.matchedCount,
+    modified: result.modifiedCount,
+  })
+})
 
 /**
- * PATCH /api/admin/queue
- * Toggle enabled/disabled for a single job.
- * Body: { jobId: string, enabled: boolean }
+ * Toggle one operation on or off.
+ *
+ * Writes `<operation>.enabled`, which GET reads. Previously it wrote
+ * `<operation>.schedule.enabled`, which nothing read.
  */
-export async function PATCH(request: Request) {
+export const PATCH = withErrorHandling('/api/admin/queue', async (request) => {
   const authError = requireApiKey(request)
   if (authError) return authError
 
-  try {
-    const body = await request.json()
-    const { jobId, enabled } = body as { jobId: string; enabled: boolean }
+  const reqId = requestId(request)
+  const body = await request.json().catch(() => null)
 
-    if (!jobId || typeof enabled !== 'boolean') {
-      return NextResponse.json(
-        { error: 'jobId and enabled are required' },
-        { status: 400 }
-      )
-    }
+  const parsed = parseJobId((body as any)?.jobId)
+  if (!parsed) {
+    return validationError(reqId, [{ field: 'jobId', reason: 'malformed job id' }])
+  }
+  if (typeof (body as any)?.enabled !== 'boolean') {
+    return validationError(reqId, [{ field: 'enabled', reason: 'must be a boolean' }])
+  }
 
-    const match = jobId.match(/^queue-(.+?)-(discovery|enrichment)$/)
-    if (!match) {
-      return NextResponse.json(
-        { error: `Invalid job id format: ${jobId}` },
-        { status: 400 }
-      )
-    }
-    const tenantId = match[1]
-    const operation = match[2]
-    const scheduleField = operation === 'discovery' ? 'discovery.schedule' : 'enrichment.schedule'
+  const { tenantId, operation } = parsed
+  const enabled = (body as any).enabled as boolean
+  const db = await getDb()
 
-    const db = await getDb()
-
-    // Fetch tenant to determine active status from the job id alone
-    const tenant = await db.collection(TENANTS_COLLECTION).findOne({ tenantId })
-    if (!tenant) {
-      return NextResponse.json(
-        { error: `Tenant not found: ${tenantId}` },
-        { status: 404 }
-      )
-    }
-
-    // Update the schedule with the enabled flag stored alongside
-    await db.collection(TENANTS_COLLECTION).updateOne(
-      { tenantId },
-      {
-        $set: {
-          [scheduleField]: {
-            ...(tenant as any)[operation === 'discovery' ? 'discovery' : 'enrichment']?.schedule || { kind: 'every', everyMs: 2700000 },
-            enabled,
-          },
-        },
-      }
-    )
-
-    return NextResponse.json({ jobId, enabled })
-  } catch (error: any) {
-    console.error('[API:admin/queue] PATCH error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
+  const existing = await db.collection(TENANTS_COLLECTION).findOne({ tenantId })
+  if (!existing) return errorResponse(404, 'not_found', 'Tenant not found.', reqId)
+  if (!existing[operation]) {
+    return errorResponse(
+      404,
+      'not_found',
+      `This tenant does not define a ${operation} operation.`,
+      reqId
     )
   }
-}
+
+  const before = existing[operation]?.enabled !== false
+  await db.collection(TENANTS_COLLECTION).updateOne(
+    { tenantId },
+    {
+      $set: {
+        [`${operation}.enabled`]: enabled,
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  )
+
+  if (before !== enabled) {
+    // Disabling a job stops scheduled execution for a revenue-relevant tenant.
+    // The Mongo config source has no git history; this is its audit trail.
+    log({
+      level: 'warn',
+      requestId: reqId,
+      event: 'config_change',
+      resource: 'tenant',
+      id: tenantId,
+      field: `${operation}.enabled`,
+      from: before,
+      to: enabled,
+    })
+  }
+
+  const updated = { ...existing, [operation]: { ...existing[operation], enabled } }
+
+  return NextResponse.json({
+    jobId: (body as any).jobId,
+    operationEnabled: enabled,
+    tenantStatus: existing.status ?? 'paused',
+    effectiveEnabled: effectiveEnabled(updated, operation),
+  })
+})

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "audit": "node scripts/audit-gate.js",
-    "test": "node scripts/verify-schema-mapper.js && node scripts/verify-cron-generator.js && node scripts/verify-runtime.js && node scripts/verify-api-validation.js && node scripts/verify-auth.js && node config/cron-generator.js --check && npm --prefix search-router/seyu-search-router test",
+    "test": "node scripts/verify-schema-mapper.js && node scripts/verify-cron-generator.js && node scripts/verify-runtime.js && node scripts/verify-api-validation.js && node scripts/verify-auth.js && node scripts/verify-queue.js && node config/cron-generator.js --check && npm --prefix search-router/seyu-search-router test",
     "test:router": "npm --prefix search-router/seyu-search-router test"
   },
   "dependencies": {
