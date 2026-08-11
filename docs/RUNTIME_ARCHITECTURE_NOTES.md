@@ -987,3 +987,63 @@ asserting the stripping did not remove real code.
 **UI unchanged.** `app/admin/queue/page.tsx` still sends no credential and still
 has a pointer-only reorder. That is the client half of #22 and is not delivered
 here.
+
+## 21. Edge hardening, and a defect that only appeared in production -- 2026-08-11
+
+Issue #19. The application set **no** security headers and applied **no** rate
+limit anywhere, and had nowhere to express either: no `next.config.js`, an empty
+`vercel.json`, no middleware.
+
+`middleware.ts` now sets six headers on every non-static response and rate-limits
+the sign-in path and admin writes. Rate-limited requests short-circuit before the
+handler, so they cost no compute and acquire no MongoDB connection. Verified
+live: attempts 1-5 pass, the 6th returns `429` with `Retry-After: 900` and a
+human-readable duration; `/api/health` is unaffected across repeated calls.
+
+CSP ships report-only and HSTS at `max-age=86400` without `preload`. `preload`
+is a durable commitment that is difficult to reverse, so the long value is only
+appropriate once no HTTP-only dependency remains. `script-src` permits neither
+`unsafe-inline` nor `unsafe-eval` and carries a per-request nonce; `style-src`
+does carry `unsafe-inline`, because GDS is Mantine-based and emits inline
+styles. That is a deliberate, recorded trade -- the alternative would be
+overriding the design system to satisfy a local constraint, which §7 of every
+issue forbids.
+
+Limiter bounds are stated rather than implied: counters are per-instance and in
+memory, so the effective global limit is (limit x instance count) and a cold
+start resets them. It is a mitigation that bounds attempt volume -- at 5 per 15
+minutes, roughly 20 attempts/hour against a 32-byte CSPRNG secret -- not a
+guaranteed ceiling.
+
+### A defect found only by testing the real build
+
+Verifying the headers against a running production server surfaced something
+unrelated and worse: **`classify()` keyed on `err.constructor.name`, which
+Next.js minification renames.** An unset `MONGODB_URI` returned
+`503 misconfigured` in development and `500 internal_error` in production, for
+the identical condition. Every error classification added in §15 was affected,
+including the MongoDB driver cases.
+
+Fixed by keying on `err.name`, which is a string literal: our own error classes
+assign it in their constructors and the driver exposes it as a prototype getter.
+Confirmed against a real `next build` -- production now returns
+`503 misconfigured` with `errorClass: "ConfigurationError"` in the log.
+Regression coverage simulates the rename with
+`Object.defineProperty(err.constructor, 'name', ...)`.
+
+Two process notes worth recording, because both nearly produced a wrong
+conclusion:
+
+- The first header check appeared to show headers this repo never sets
+  (`sso.doneisbetter.com`, `unsafe-eval`, `X-Frame-Options: SAMEORIGIN`).
+  Another application was already listening on port 3000; `npm start` had failed
+  with `EADDRINUSE` and the requests hit that other app. Always confirm the
+  server under test is the one that answered.
+- The first re-test after the fix still reported `500`, suggesting the fix had
+  failed. A previous server was still holding the port, so the request hit the
+  pre-fix build. It was a stale process, not a failed fix.
+
+Coverage: `scripts/verify-edge.js`, 22 checks -- limiter windows, bucket
+routing, `/api/health` exemption, header presence, the `script-src` prohibition,
+HSTS conservatism, and structural assertions that the middleware performs no I/O
+on the request path.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import {
   classify,
+  errorName,
   log,
   requestIdFrom,
   validationCode,
@@ -63,7 +64,7 @@ export function withErrorHandling(
         method: request.method,
         status,
         code,
-        errorClass: err instanceof Error ? err.constructor.name : "Unknown",
+        errorClass: errorName(err),
         message: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined,
         durationMs: Date.now() - started,

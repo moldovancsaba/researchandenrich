@@ -77,8 +77,29 @@ export function log(record: Record<string, unknown>): void {
  * database rather than the code, and tells the client the request is
  * retryable, without disclosing which host was unreachable.
  */
+/**
+ * Resolve an error's class name for classification.
+ *
+ * MUST NOT use `err.constructor.name`. Next.js minifies the production server
+ * bundle, which renames classes -- so `ConfigurationError` became a mangled
+ * identifier and a configuration failure classified as `500 internal_error` in
+ * production while correctly returning `503 misconfigured` in development.
+ * Verified against a real `next build`, not assumed.
+ *
+ * `err.name` survives because it is a string literal: our own error classes
+ * assign it in their constructors, and the MongoDB driver exposes it as a
+ * prototype getter returning a literal.
+ */
+export function errorName(err: unknown): string {
+  if (!(err instanceof Error)) return "Unknown"
+  if (typeof err.name === "string" && err.name !== "" && err.name !== "Error") {
+    return err.name
+  }
+  return err.constructor?.name ?? "Unknown"
+}
+
 export function classify(err: unknown): Classification {
-  const name = err instanceof Error ? err.constructor.name : "Unknown"
+  const name = errorName(err)
 
   if (name === "ConfigurationError") {
     return {

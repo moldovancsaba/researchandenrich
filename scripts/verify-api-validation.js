@@ -29,7 +29,7 @@ const {
   TENANT_SCHEMA,
   APP_SCHEMA,
 } = require('../lib/validation.ts');
-const { classify, log } = require('../lib/errors.ts');
+const { classify, log, errorName } = require('../lib/errors.ts');
 
 let passed = 0;
 function check(label, fn) {
@@ -316,6 +316,50 @@ check('log never throws, even on a value that cannot be serialised', () => {
     log({ level: 'error', cyclic });
   } finally {
     console.error = original;
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// Minification hazard (found against a real production build)
+//
+// classify() originally keyed on err.constructor.name. Next.js minifies the
+// production server bundle and renames classes, so ConfigurationError became a
+// mangled identifier: dev returned 503 misconfigured and production returned
+// 500 internal_error for the identical condition. err.name is a string literal
+// and survives.
+// ---------------------------------------------------------------------------
+
+check('classification survives a minified (renamed) class', () => {
+  class ConfigurationError extends Error {
+    constructor(msg) { super(msg); this.name = 'ConfigurationError'; }
+  }
+  const err = new ConfigurationError('MONGODB_URI is not set');
+  // Simulate the minifier renaming the constructor.
+  Object.defineProperty(err.constructor, 'name', { value: 'e' });
+  assert.strictEqual(err.constructor.name, 'e', 'rename did not take effect');
+  assert.strictEqual(classify(err).code, 'misconfigured',
+    'classification regressed to constructor.name');
+});
+
+check('errorName prefers the literal name over the constructor name', () => {
+  class Renamed extends Error {
+    constructor() { super('x'); this.name = 'MongoServerSelectionError'; }
+  }
+  const err = new Renamed();
+  Object.defineProperty(err.constructor, 'name', { value: 'q' });
+  assert.strictEqual(errorName(err), 'MongoServerSelectionError');
+  assert.strictEqual(classify(err).code, 'database_unavailable');
+});
+
+check('errorName falls back to the constructor for an unnamed error', () => {
+  class PlainThing extends Error {}
+  assert.strictEqual(errorName(new PlainThing('x')), 'PlainThing');
+});
+
+check('errorName handles non-Error values', () => {
+  for (const v of ['str', 42, null, undefined, {}]) {
+    assert.strictEqual(errorName(v), 'Unknown');
   }
 });
 

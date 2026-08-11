@@ -280,6 +280,23 @@ people to ignore it.
 configuration in this repo and prompts interactively, which would hang the
 runner. Configuring it is unaddressed.
 
+**Edge hardening.** `middleware.ts` sets six security headers on every
+non-static response and rate-limits the sign-in path (5 per 15 min) and admin
+writes (60 per min). Rate-limited requests short-circuit before the handler, so
+they acquire no database connection. `/api/health` is never limited.
+
+CSP ships **report-only** (`CSP_REPORT_ONLY=false` to enforce) and HSTS ships at
+`max-age=86400` without `preload` — `preload` is difficult to reverse, so raise
+`HSTS_MAX_AGE` and set `HSTS_PRELOAD=true` only once no HTTP-only dependency
+remains. `style-src` carries `unsafe-inline` because GDS is a Mantine-based
+system that emits inline styles; `script-src` does not, and uses a per-request
+nonce.
+
+The limiter is per-instance and in memory: the effective global limit is
+(limit x instance count) and a cold start resets counters. It is a mitigation
+that bounds attempt volume, not a guaranteed ceiling. An exact limit needs a KV
+backend and is separate work.
+
 **Dependency policy.** `npm run audit` runs `scripts/audit-gate.js`, which
 audits both packages and fails on any advisory **except** an explicitly
 baselined set. Every baseline entry carries a reason and a removal condition; an
