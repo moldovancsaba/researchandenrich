@@ -884,3 +884,48 @@ split as `errors.ts` / `api-response.ts` in §15.
 **Still open:** the browser clients (issue #14) and therefore the flag itself.
 Until `ADMIN_AUTH_ENABLED=true`, this code is inert and the Vercel edge gate
 (#11, also outstanding) remains the only access control.
+
+## 19. Design system: GDS adopted, and a correction -- 2026-08-11
+
+**Correction to earlier issue bodies.** Issues #12, #14 and #22 state that this
+repo's `@mantine/core` dependency "conflicts with the mandatory design system
+constraint". That is wrong. `@sovereignsquad/gds` is *built on* Mantine and
+peers on `@mantine/core ^7.9.0 || ^8.3.0 || ^9.0.0`. Mantine is GDS's own
+foundation, not a competing component library. The real constraint is to compose
+from GDS surfaces rather than hand-rolling components on raw Mantine primitives
+-- which is what `app/admin/**` currently does.
+
+That claim was made without reading the design system. It was recorded in four
+issue bodies before being checked, and each has been corrected on the issue.
+
+**Availability, also previously mis-stated.** GDS was treated as a blocker on
+the grounds that it had not been read. It is published on npm at **3.9.0** and
+installs cleanly. Six packages: `gds` (umbrella), `gds-theme`, `gds-core`,
+`gds-admin`, `gds-a11y`, `gds-compliance`.
+
+Installed at 3.9.0 pinned, with the Mantine peer set aligned to the existing
+`@mantine/core@7.17.8`. One resolution detail worth recording: `npm install
+@sovereignsquad/gds` alone fails with `ERESOLVE`, because `@mantine/modals`
+resolves to its latest (9.x) which peers on an exact matching `@mantine/core`.
+Installing `@mantine/modals` and `@mantine/notifications` explicitly at `^7.17.8`
+resolves it without `--force` or `--legacy-peer-deps`.
+
+Relevant surfaces confirmed present in `@sovereignsquad/gds-core/client`:
+`GdsAccessGate`, `GdsDataTable`, `GdsResourceManager`, `GdsSchemaForm`,
+`GdsConfirmProvider`, `GdsDialog`, `GdsValidationSummary`,
+`GdsNotificationProvider`, `GdsFormProvider`, `GdsTelemetryProvider`.
+`gds-theme/client` provides `GdsProvider` plus theme presets and
+`useGdsReducedMotion`. `@sovereignsquad/gds-a11y` exports the Playwright/axe
+consumer helpers (`createGdsA11yTest`, `runGdsAxeScan`, `expectGdsTabOrder`,
+`expectGdsFocusTrap`, `runGdsContrastGate`).
+
+**This also supersedes a stated non-delivery.** §17 recorded that
+`npm run test:a11y` was deliberately not built. `gds-a11y` provides exactly that
+runner, so the accessibility gate should be wired from the package rather than
+hand-rolled -- as part of the client rebuild, against the surfaces that will
+actually exist.
+
+Build, typecheck and all six suites pass with GDS installed; the audit gate
+remains green with one baselined advisory. No UI has been migrated yet: that is
+issues #14 and #22, and it is a rebuild of both admin pages rather than a
+dependency swap.
