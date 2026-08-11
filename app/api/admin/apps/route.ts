@@ -1,98 +1,77 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
+import { asIdentifier, validateAgainstSchema, APP_SCHEMA } from '../../../../lib/validation'
+import {
+  withErrorHandling,
+  errorResponse,
+  validationError,
+  requestId,
+} from '../../../../lib/api-response'
 
 const COLLECTION = 'contentcreator_apps'
 
 export const dynamic = 'force-dynamic'
 
-function getBrand(request: Request): string {
-  const url = new URL(request.url)
-  const brand = (url.searchParams.get('brand') || '').trim()
-  return brand || 'default'
-}
-
-export async function GET(request: Request) {
+export const GET = withErrorHandling('/api/admin/apps', async (request) => {
   const authError = requireApiKey(request)
   if (authError) return authError
 
-  try {
-    const db = await getDb()
-    const apps = await db.collection(COLLECTION).find({}).sort({ createdAt: 1 }).toArray()
+  const db = await getDb()
+  const apps = await db.collection(COLLECTION).find({}).sort({ createdAt: 1 }).toArray()
 
-    return NextResponse.json({
-      apps: apps.map((a: any) => ({
-        appId: a.appId,
-        displayName: a.displayName,
-        description: a.description || '',
-        apiBase: a.apiBase || '',
-        verifier: a.verifier || 'list-based',
-        schemaMapper: a.schemaMapper || 'default',
-        searchEngines: a.searchEngines || ['google', 'serpapi'],
-        qualityPipeline: a.qualityPipeline || ['DRAFT', 'CHECKED', 'VERIFIED'],
-        maxResultsPerRun: a.maxResultsPerRun || 50,
-        createdAt: a.createdAt,
-        updatedAt: a.updatedAt,
-      })),
-    })
-  } catch (error: any) {
-    console.error('[API:admin/apps] GET error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({
+    apps: apps.map((a: any) => ({
+      appId: a.appId,
+      displayName: a.displayName,
+      description: a.description || '',
+      apiBase: a.apiBase || '',
+      verifier: a.verifier || 'list-based',
+      schemaMapper: a.schemaMapper || 'schema-mapper.js',
+      searchEngines: a.searchEngines || [],
+      qualityPipeline: a.qualityPipeline || ['DRAFT', 'CHECKED', 'VERIFIED'],
+      maxResultsPerRun: a.maxResultsPerRun || 5,
+      tenantIds: a.tenantIds || [],
+      createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
+    })),
+  })
+})
 
-export async function POST(request: Request) {
+export const POST = withErrorHandling('/api/admin/apps', async (request) => {
   const authError = requireApiKey(request)
   if (authError) return authError
 
-  try {
-    const body = await request.json()
-    const { appId, displayName, description, apiBase, verifier, schemaMapper, searchEngines, qualityPipeline, maxResultsPerRun } = body
+  const reqId = requestId(request)
+  const body = await request.json().catch(() => null)
 
-    if (!appId || !displayName) {
-      return NextResponse.json(
-        { error: 'appId and displayName are required' },
-        { status: 400 }
-      )
-    }
-
-    const db = await getDb()
-
-    const existing = await db.collection(COLLECTION).findOne({ appId })
-    if (existing) {
-      return NextResponse.json(
-        { error: `App with appId "${appId}" already exists` },
-        { status: 409 }
-      )
-    }
-
-    const now = new Date().toISOString()
-    const app = {
-      appId,
-      displayName,
-      description: description || '',
-      apiBase: apiBase || '',
-      verifier: verifier || 'list-based',
-      schemaMapper: schemaMapper || 'default',
-      searchEngines: searchEngines || ['google', 'serpapi'],
-      qualityPipeline: qualityPipeline || ['DRAFT', 'CHECKED', 'VERIFIED'],
-      maxResultsPerRun: maxResultsPerRun || 50,
-      tenantIds: [],
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    await db.collection(COLLECTION).insertOne(app)
-
-    return NextResponse.json({ app }, { status: 201 })
-  } catch (error: any) {
-    console.error('[API:admin/apps] POST error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
-    )
+  const idResult = asIdentifier((body as any)?.appId, 'appId')
+  if (!idResult.ok) {
+    return validationError(reqId, [{ field: idResult.field, reason: idResult.reason }])
   }
-}
+
+  const validated = validateAgainstSchema(APP_SCHEMA, body, { partial: false })
+  if (!validated.ok) return validationError(reqId, validated.errors)
+
+  const appId = idResult.value
+  const db = await getDb()
+
+  const existing = await db.collection(COLLECTION).findOne({ appId })
+  if (existing) {
+    return errorResponse(409, 'conflict', 'An app with that id already exists.', reqId)
+  }
+
+  const now = new Date().toISOString()
+  const app = {
+    ...validated.value,
+    appId,
+    // Server-maintained, never caller-supplied.
+    tenantIds: [],
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await db.collection(COLLECTION).insertOne(app)
+
+  return NextResponse.json({ app }, { status: 201 })
+})

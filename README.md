@@ -22,9 +22,7 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 │       │   ├── apps/
 │       │   ├── tenants/
 │       │   └── queue/
-│       ├── health/route.ts
-│       └── leads/route.ts        <- local stub/mock only -- the real leads API this
-│                                     pipeline writes to lives in salesleadgenerator
+│       └── health/route.ts       <- public probe; reports database reachability
 ├── lib/                       <- shared utilities (for the /admin app above)
 │   ├── mongodb.ts                <- MongoDB connection helper
 │   └── api-auth.ts               <- API key authentication

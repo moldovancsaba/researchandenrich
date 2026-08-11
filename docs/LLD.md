@@ -185,7 +185,7 @@ All four import `requireApiKey` from `lib/api-auth.ts` and `clientPromise` from 
 - `app/api/admin/tenants/route.ts` — `GET` (list from `contentcreator_tenants`), `POST` (create; 409 if exists).
 - `app/api/admin/tenants/[tenantId]/route.ts` — `GET`, `PUT` (shallow-merge replace), `DELETE`.
 - `app/api/admin/queue/route.ts` — `GET` (synthesizes up to 2 "jobs" per tenant — discovery+enrichment — from the Mongo tenants collection; special-cases `appId === 'classscout-api'`, the concrete evidence a tenant was onboarded into Mongo with no corresponding static-file entry anywhere in this repo, see §8.3). `PUT` (bulk sortOrder/schedule update from drag-and-drop). `PATCH` (toggle single job's `enabled`).
-- `app/api/leads/route.ts` — **not a real admin route** — a lightweight local stub/mock (`GET` returns `{leads: []}`, `POST`/`PUT` echo the body back). The real leads API this pipeline actually targets lives in the separate `salesleadgenerator` deployment (`tenants.json`'s `apiBase`), not here.
+- `app/api/leads/route.ts` — **removed 2026-08-11.** It was an unauthenticated stub (`GET` returned `{leads: []}`, `POST`/`PUT` echoed the body back with a success status) deployed publicly with no consumer. The real leads API this pipeline targets lives in the separate `salesleadgenerator` deployment (`tenants.json`'s `apiBase`), not here.
 - `app/api/health/route.ts` — trivial `{status: "ok", framework: "nextjs", timestamp}`.
 
 ### 8.2 ⚠ Auth is a permanently-disabled no-op — a real, load-bearing finding

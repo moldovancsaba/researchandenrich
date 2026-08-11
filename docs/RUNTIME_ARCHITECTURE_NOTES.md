@@ -644,3 +644,79 @@ no data.
 endpoint, so monitoring distinguishes "app up, database unreachable" from "app
 down". It exposes the error CLASS only, never the message -- the route is
 unauthenticated and driver messages carry hostnames and replica-set topology.
+
+## 15. Admin API hardening: injection, mass assignment, disclosure, and a stub -- 2026-08-11
+
+Four defects in `app/api/admin/**` and `app/api/leads/`, fixed together behind
+two new shared modules (`lib/validation.ts`, `lib/errors.ts`). Coverage:
+`node scripts/verify-api-validation.js` (34 checks).
+
+**15a. MongoDB operator injection.** `POST /api/admin/{tenants,apps}` took
+`tenantId`/`appId` straight from the parsed JSON body into
+`findOne({ tenantId })`. Since the body is arbitrary JSON,
+`{"tenantId": {"$ne": null}}` was interpreted by the driver as a query
+*operator* rather than compared as a value -- matching an arbitrary document and
+returning a spurious `409` -- and the same object would then have been persisted
+where every downstream consumer assumes a string. The path-parameter routes were
+already safe by construction (a URL segment is always a string); only the
+body-derived paths were affected, so the remedy is targeted rather than a
+blanket rewrite. `asIdentifier()` now rejects non-strings at the type level,
+which removes the vector entirely instead of trying to sanitise operator syntax.
+The accepted pattern excludes `$` and `.` so a validated identifier stays inert
+in any query position added later.
+
+**15b. Mass assignment.** Both `PUT` handlers built their update as
+`{ ...existing, ...body }`, pinning only the identifier. Every other field was
+caller-writable, including:
+
+- `status` -- which `CLAUDE.md` designates as the single most consequential
+  field in the system and wraps in commit-message discipline. That same mutation
+  was reachable over unauthenticated HTTP with no commit and no diff. An
+  unannounced tenant pause is exactly the incident recorded in §9.
+- `tenantIds` -- which guards app deletion. Caller-writable, so the guard was
+  bypassable in two ordinary requests: clear the array, then `DELETE`.
+- `apiBase` -- repointing a tenant's lead writes at an arbitrary host.
+
+Replaced with declarative per-resource allowlists. Unknown fields are
+**rejected and named**, not dropped: silently ignoring one lets a caller believe
+a change took effect when it did not. `tenantIds` is now `immutable` on update
+and maintained server-side, and the app delete guard counts live tenant
+documents rather than trusting the stored array. `status` transitions emit a
+structured `config_change` event -- the Mongo-side config source has no git
+history, so this is its only audit trail.
+
+**15c. Disclosure.** All eleven catch blocks returned
+`{ error: error?.message }` at status 500. A `MongoServerSelectionError` message
+enumerates every replica-set member with resolved hostname and port; connection
+failures can include connection-string fragments. Replaced with a coded envelope
+(`error`, `code`, `message`, `requestId`) and structured server-side logging that
+runs every string field through a redactor for connection strings, `slg_` keys
+and JWTs, bounded at 8 KB per field. `404`/`409` no longer echo the
+caller-supplied identifier -- it is already in the request URL, and the
+`requestId` links the response to a log line that records it.
+
+`503 database_unavailable` is deliberately distinguished from
+`500 internal_error`: it tells the operator to check the database rather than the
+code, and tells the client the request is retryable, without disclosing which
+host was unreachable. Handlers are wrapped by `withErrorHandling`, so a route
+cannot omit error handling by forgetting a `try`.
+
+**15d. `app/api/leads/route.ts` removed.** An unauthenticated stub, publicly
+deployed, whose `POST`/`PUT` echoed any JSON body back with `201 {success:
+true}`. It wrote nothing -- the real leads API is in `salesleadgenerator` -- so
+its only realistic effect was to mislead: an agent misconfigured to point here
+would receive success for every write while producing nothing, and the
+list-based verifier would then report "write succeeded, verification failed".
+It also served as a body-reflection oracle from a trusted origin.
+
+Removal evidence: a repo-wide grep found no consumer -- every `/api/leads`
+reference resolves through `tenants.json`'s `apiBase` to
+`salesleadgenerator.vercel.app`, or is documentation prose. No tenant's
+`apiBase` points at this deployment. **Not verified:** Vercel function-invocation
+logs were not accessible from this session, so "no live consumer" rests on the
+static evidence alone. If `/api/leads` traffic is observed after deployment,
+treat it as a rollback trigger rather than noise.
+
+**Unchanged:** `requireApiKey()` is still a no-op. Everything above reduces what
+a call can *do*; none of it authenticates. The M1 work remains outstanding and
+the Vercel edge gate remains the only access control.

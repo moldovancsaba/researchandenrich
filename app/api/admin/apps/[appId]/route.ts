@@ -1,123 +1,130 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '../../../../../lib/mongodb'
 import { requireApiKey } from '../../../../../lib/api-auth'
+import {
+  asIdentifier,
+  validateAgainstSchema,
+  deepEqual,
+  APP_SCHEMA,
+} from '../../../../../lib/validation'
+import {
+  withErrorHandling,
+  errorResponse,
+  validationError,
+  requestId,
+  log,
+} from '../../../../../lib/api-response'
 
 const COLLECTION = 'contentcreator_apps'
 
 export const dynamic = 'force-dynamic'
 
-function getAppId(request: Request): string {
+function appIdFromPath(request: Request) {
   const url = new URL(request.url)
   const parts = url.pathname.split('/')
-  return parts[parts.length - 1]
+  return asIdentifier(decodeURIComponent(parts[parts.length - 1]), 'appId')
 }
 
-export async function GET(request: Request) {
+export const GET = withErrorHandling('/api/admin/apps/[appId]', async (request) => {
   const authError = requireApiKey(request)
   if (authError) return authError
 
-  try {
-    const appId = getAppId(request)
-    const db = await getDb()
+  const reqId = requestId(request)
+  const id = appIdFromPath(request)
+  if (!id.ok) return validationError(reqId, [{ field: id.field, reason: id.reason }])
 
-    const app = await db.collection(COLLECTION).findOne({ appId })
-    if (!app) {
-      return NextResponse.json(
-        { error: `App "${appId}" not found` },
-        { status: 404 }
-      )
-    }
+  const db = await getDb()
+  const app = await db.collection(COLLECTION).findOne({ appId: id.value })
+  if (!app) return errorResponse(404, 'not_found', 'App not found.', reqId)
 
-    return NextResponse.json({
-      appId: app.appId,
-      displayName: app.displayName,
-      description: app.description || '',
-      apiBase: app.apiBase || '',
-      verifier: app.verifier || 'list-based',
-      schemaMapper: app.schemaMapper || 'default',
-      searchEngines: app.searchEngines || ['google', 'serpapi'],
-      qualityPipeline: app.qualityPipeline || ['DRAFT', 'CHECKED', 'VERIFIED'],
-      maxResultsPerRun: app.maxResultsPerRun || 50,
-      tenantIds: app.tenantIds || [],
-      createdAt: app.createdAt,
-      updatedAt: app.updatedAt,
-    })
-  } catch (error: any) {
-    console.error('[API:admin/apps] GET error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
-    )
-  }
-}
+  return NextResponse.json({
+    appId: app.appId,
+    displayName: app.displayName,
+    description: app.description || '',
+    apiBase: app.apiBase || '',
+    verifier: app.verifier || 'list-based',
+    schemaMapper: app.schemaMapper || 'schema-mapper.js',
+    searchEngines: app.searchEngines || [],
+    qualityPipeline: app.qualityPipeline || ['DRAFT', 'CHECKED', 'VERIFIED'],
+    maxResultsPerRun: app.maxResultsPerRun || 5,
+    tenantIds: app.tenantIds || [],
+    createdAt: app.createdAt,
+    updatedAt: app.updatedAt,
+  })
+})
 
-export async function PUT(request: Request) {
+export const PUT = withErrorHandling('/api/admin/apps/[appId]', async (request) => {
   const authError = requireApiKey(request)
   if (authError) return authError
 
-  try {
-    const appId = getAppId(request)
-    const body = await request.json()
-    const db = await getDb()
+  const reqId = requestId(request)
+  const id = appIdFromPath(request)
+  if (!id.ok) return validationError(reqId, [{ field: id.field, reason: id.reason }])
 
-    const existing = await db.collection(COLLECTION).findOne({ appId })
-    if (!existing) {
-      return NextResponse.json(
-        { error: `App "${appId}" not found` },
-        { status: 404 }
-      )
-    }
+  const body = await request.json().catch(() => null)
 
-    const updated = {
-      ...existing,
-      ...body,
-      appId: existing.appId,
-      updatedAt: new Date().toISOString(),
-    }
+  // tenantIds is immutable here. It was caller-writable through the previous
+  // `{ ...existing, ...body }` spread, which made the delete guard below
+  // bypassable in two ordinary requests: clear the array, then DELETE.
+  const validated = validateAgainstSchema(APP_SCHEMA, body, { partial: true })
+  if (!validated.ok) return validationError(reqId, validated.errors)
 
-    await db.collection(COLLECTION).replaceOne({ appId }, updated)
+  const db = await getDb()
+  const existing = await db.collection(COLLECTION).findOne({ appId: id.value })
+  if (!existing) return errorResponse(404, 'not_found', 'App not found.', reqId)
 
-    return NextResponse.json({ app: updated })
-  } catch (error: any) {
-    console.error('[API:admin/apps] PUT error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
-    )
+  const changedFields = Object.keys(validated.value).filter(
+    (k) => !deepEqual((existing as any)[k], validated.value[k])
+  )
+
+  const updated = {
+    ...existing,
+    ...validated.value,
+    appId: existing.appId,
+    updatedAt: new Date().toISOString(),
   }
-}
 
-export async function DELETE(request: Request) {
+  await db.collection(COLLECTION).replaceOne({ appId: existing.appId }, updated)
+
+  return NextResponse.json({ app: updated, changedFields })
+})
+
+export const DELETE = withErrorHandling('/api/admin/apps/[appId]', async (request) => {
   const authError = requireApiKey(request)
   if (authError) return authError
 
-  try {
-    const appId = getAppId(request)
-    const db = await getDb()
+  const reqId = requestId(request)
+  const id = appIdFromPath(request)
+  if (!id.ok) return validationError(reqId, [{ field: id.field, reason: id.reason }])
 
-    const existing = await db.collection(COLLECTION).findOne({ appId })
-    if (!existing) {
-      return NextResponse.json(
-        { error: `App "${appId}" not found` },
-        { status: 404 }
-      )
-    }
+  const db = await getDb()
+  const existing = await db.collection(COLLECTION).findOne({ appId: id.value })
+  if (!existing) return errorResponse(404, 'not_found', 'App not found.', reqId)
 
-    if ((existing.tenantIds || []).length > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete app "${appId}" with active tenants. Remove tenants first.` },
-        { status: 409 }
-      )
-    }
-
-    await db.collection(COLLECTION).deleteOne({ appId })
-
-    return NextResponse.json({ deleted: appId })
-  } catch (error: any) {
-    console.error('[API:admin/apps] DELETE error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Unknown failure' },
-      { status: 500 }
+  // Guard derived from live tenant membership rather than the stored array, so
+  // it holds even if a stored tenantIds value is stale.
+  const tenantCount = await db
+    .collection('contentcreator_tenants')
+    .countDocuments({ appId: id.value })
+  if (tenantCount > 0) {
+    return errorResponse(
+      409,
+      'conflict',
+      `Cannot delete an app that still has ${tenantCount} tenant(s). Remove them first.`,
+      reqId
     )
   }
-}
+
+  await db.collection(COLLECTION).deleteOne({ appId: id.value })
+
+  log({
+    level: 'warn',
+    requestId: reqId,
+    event: 'config_change',
+    resource: 'app',
+    id: id.value,
+    field: 'deleted',
+  })
+
+  return NextResponse.json({ deleted: id.value })
+})
