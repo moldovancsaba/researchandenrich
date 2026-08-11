@@ -252,6 +252,34 @@ indistinguishable from a working deployment with no data. `GET /api/health`
 reports database reachability and latency without failing, so monitoring can
 tell "app up, database unreachable" from "app down".
 
+**Verification.** `npm test` runs every regression suite plus the cron
+staleness gate:
+
+| suite | covers |
+|---|---|
+| `verify-schema-mapper.js` | mapping, validation, endpoint construction (111) |
+| `verify-cron-generator.js` | YAML parse fidelity, schedule resolution (26) |
+| `verify-runtime.js` | verifier URL construction, failure classification (23) |
+| `verify-api-validation.js` | identifier validation, allowlists, redaction (34) |
+| search-router suite | routing, circuit breaker, rate limiter, fetch bounds (42) |
+| `cron-generator --check` | Definition-of-Done item 2, mechanically enforced |
+
+`.github/workflows/verify.yml` runs all of it on every push to
+`main`/`preview`/`dev`, plus typecheck, build and audit. There is no PR gate on
+this repository by design, so these checks are the only automated signal before
+a change reaches production.
+
+Two gates currently **warn rather than fail**, because the defects they detect
+are known and tracked: five `.env*` files are still tracked in git (issue #10,
+blocked on credential rotation #9), and `NEXT_PUBLIC_SLG_API_KEY` is still
+inlined into the client bundle (issue #14). Both block *new* occurrences today
+and become hard failures when those issues land. A permanently-red gate trains
+people to ignore it.
+
+`npm run lint` is **not** wired into CI: `next lint` has no ESLint
+configuration in this repo and prompts interactively, which would hang the
+runner. Configuring it is unaddressed.
+
 **Dependency policy.** Run `npm run audit` (`npm audit --omit=dev`) before
 any dependency change. One advisory is currently **open and accepted**:
 `next` reports a high-severity set whose only fix is `next@16.3.0`, a

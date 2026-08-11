@@ -1,0 +1,83 @@
+name: verify
+
+# The repository has no PR gate by design -- CLAUDE.md documents multiple agent
+# sessions pushing directly to main/preview/dev. These checks are therefore the
+# only automated signal before a change reaches production.
+on:
+  push:
+    branches: [main, preview, dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Must match engines.node and the Vercel runtime. The verify scripts
+          # require .ts modules directly, which needs Node >= 22.18.
+          node-version: '22'
+          cache: npm
+
+      - name: Install (root)
+        run: npm ci
+
+      - name: Install (search-router)
+        run: npm --prefix search-router/seyu-search-router ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Runs all four regression suites, the search-router suite, and the
+      # cron staleness gate -- Definition-of-Done item 2, mechanically enforced.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Advisory drift is what let the framework fall 35 patch releases behind
+      # before an audit found it. This makes it a push-time signal instead.
+      - name: Audit
+        run: npm run audit
+
+      # NEXT_PUBLIC_SLG_API_KEY is still inlined into the bundle by
+      # app/admin/page.tsx -- that is the defect issue #14 removes. Until then
+      # this warns; any OTHER NEXT_PUBLIC_ credential is a hard failure.
+      # FLIP THIS TO A HARD FAILURE when #14 lands.
+      - name: Assert no new credential is inlined into the client bundle
+        run: |
+          fail=0
+          for name in $(grep -rhoE 'NEXT_PUBLIC_[A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD)' \
+                        .next/static/ 2>/dev/null | sort -u); do
+            if [ "$name" = "NEXT_PUBLIC_SLG_API_KEY" ]; then
+              echo "WARN  $name is inlined into the client bundle (known, see issue #14)"
+            else
+              echo "FAIL  $name is a NEWLY inlined credential in the client bundle"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "ok    no newly inlined credentials in the client bundle"
+
+      # Blocks NEW tracked env files rather than the known-outstanding ones.
+      # Five are still tracked from before the audit; removing them is issue
+      # #10, which is blocked on credential rotation (#9). A permanently-red
+      # gate would train people to ignore it, so the known set is baselined and
+      # anything outside it is a hard failure. DELETE THE BASELINE when #10
+      # lands -- at that point any tracked env file is a regression.
+      - name: Assert no new environment file is tracked
+        run: |
+          BASELINE=".env.check .env.cogmap .env.cogmap.bak .env.prod .env.vercel"
+          fail=0
+          for f in $(git ls-files | grep -E '^\.env' | grep -v '\.env\.example' || true); do
+            case " $BASELINE " in
+              *" $f "*) echo "WARN  $f is still tracked (known, see issue #10)" ;;
+              *) echo "FAIL  $f is a NEWLY tracked environment file"; fail=1 ;;
+            esac
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "ok    no newly tracked environment files"

@@ -22,9 +22,14 @@ invent a fourth.
 
 A change is not done until all of these are true:
 
-1. **`node scripts/verify-schema-mapper.js` passes** — every real tenant in
-   `tenants.json` is exercised automatically; add regression coverage for
-   any new mapping/validation logic in the same change, not as a follow-up.
+1. **`npm test` passes** — this runs every regression suite
+   (`verify-schema-mapper`, `verify-cron-generator`, `verify-runtime`,
+   `verify-api-validation`), the search-router suite, and
+   `config/cron-generator.js --check`. Every real tenant in `tenants.json` is
+   exercised automatically; add regression coverage for any new logic in the
+   same change, not as a follow-up. Amended 2026-08-11: this item previously
+   named `verify-schema-mapper.js` alone, which covered one file — every defect
+   the 2026-08-10 audit found outside it sat in code the gate did not touch.
 2. **`node config/cron-generator.js` was re-run** if `tenants.json` or any
    `workers/*/*.yaml` changed, and the regenerated `config/cron.yaml` is
    committed alongside.
@@ -85,11 +90,12 @@ self-invent new issues to stay busy; work the real backlog, and file a
 real, well-scoped issue (matching the structure of #6/#7/#8) when new
 follow-up work is discovered as an outcome of what you were already doing.
 
-No GitHub Projects (v2) board API is available in this session's
-toolset — issues can be created/labeled via the API, but cannot be added
-to a project board programmatically. State this plainly whenever asked
-for one; hand off the "add to board" step to whoever has board access
-rather than claiming it was done.
+GitHub Projects (v2) **is** available when the token carries the `project`
+scope — boards can be created, given custom fields, and populated
+programmatically via `gh project`. (Corrected 2026-08-11: this section
+previously stated the opposite, which was true of an earlier session's
+toolset. Check `gh auth status` for the scope rather than assuming either
+way.)
 
 ## AI Attribution & Branding Policy (Owner Directive 2026-07-31)
 

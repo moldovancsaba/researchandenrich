@@ -776,3 +776,60 @@ Coverage: 24 -> 42 tests. The package's suite now runs under the repository's
 **Not addressed:** no DNS-rebinding protection. Host validation happens at URL
 level, not at connect time; closing that needs a custom agent and is out of
 scope.
+
+## 17. Verification coverage and a CI gate -- 2026-08-11
+
+`scripts/verify-schema-mapper.js` was the repository's only automated gate, and
+Definition-of-Done item 1 named it specifically. It reported 40 passing checks
+and covered exactly one file. Every defect the 2026-08-10 audit found outside
+`schema-mapper.js` -- the cron generator discarding its inputs (§11), the
+list-based health check never building a valid URL (§12), the MongoClient leak
+(§14), the admin API's injection and mass-assignment paths (§15) -- sat in code
+the gate did not touch, while the gate stayed green.
+
+Coverage now: **236 checks** across five suites.
+
+| suite | checks | covers |
+|---|---|---|
+| `verify-schema-mapper.js` | 111 | mapping, validation, endpoint construction |
+| `verify-cron-generator.js` | 26 | parse fidelity, schedule resolution |
+| `verify-runtime.js` | 23 | verifier URLs, failure classification |
+| `verify-api-validation.js` | 34 | identifiers, allowlists, redaction |
+| search-router | 42 | routing, breaker, limiter, fetch bounds |
+
+Plus `config/cron-generator.js --check`, which makes Definition-of-Done item 2
+mechanically enforceable rather than a thing an author has to remember.
+
+`npm test` runs all of it. `.github/workflows/verify.yml` runs it on every push
+to `main`/`preview`/`dev`, with typecheck, build and audit. This repository has
+no PR gate by design -- `CLAUDE.md` documents multiple agent sessions pushing
+directly -- so these checks are the only automated signal before a change
+reaches production.
+
+**Two gates warn rather than fail, deliberately.** Five `.env*` files are still
+tracked (issue #10, blocked on rotation #9) and `NEXT_PUBLIC_SLG_API_KEY` is
+still inlined into the client bundle (issue #14). Both conditions are real and
+unresolved, so a hard failure would leave CI permanently red -- which trains
+people to ignore it. The known set is baselined and anything outside it fails
+hard, so the gates block regressions today and become absolute once those issues
+land. Each carries an explicit instruction in the workflow to remove its
+baseline at that point.
+
+**`npm run lint` is not in CI.** `next lint` has no ESLint configuration in this
+repo: running it prompts interactively to create one, which would hang the
+runner. That is a pre-existing gap -- the `lint` script has presumably never
+been runnable non-interactively -- and configuring ESLint was out of scope here.
+Recorded rather than quietly dropped.
+
+Both Definition-of-Done item 1 and the stale "no Projects v2 API available" note
+in `CLAUDE.md` were amended in the same change. The latter was true of an
+earlier session's toolset and is not true when the token carries the `project`
+scope.
+
+**Still uncovered:** the `/admin` React components (no component or browser
+testing), full HTTP round trips through Next.js (route coverage is
+handler-level), and MongoDB driver-specific behaviour (the driver is faked, not
+containerised). No accessibility runner exists yet -- `npm run test:a11y` was
+specified in issue #27 but is not delivered here, because the surfaces it would
+target are the ones #14 and #22 rebuild on the design system. Building it
+against components scheduled for replacement would be waste.
