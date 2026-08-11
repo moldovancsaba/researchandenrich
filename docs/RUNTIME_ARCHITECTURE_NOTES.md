@@ -720,3 +720,59 @@ treat it as a rollback trigger rather than noise.
 **Unchanged:** `requireApiKey()` is still a no-op. Everything above reduces what
 a call can *do*; none of it authenticates. The M1 work remains outstanding and
 the Vercel edge gate remains the only access control.
+
+## 16. Search router: advisories cleared and outbound fetch bounded -- 2026-08-11
+
+`search-router/seyu-search-router` is the only component in the system that
+fetches attacker-influenceable content -- third-party engines choose results
+from the open web and the router reads whatever comes back -- and it runs in the
+same process that holds `SLG_API_KEY` and the Atlas credentials. It also had the
+least attention.
+
+**Advisories: 5 -> 0.** `ip-address` (high, SSRF and trust-boundary bypass via
+leading-zero octet, CIDR-suffix and IPv4-mapped misclassification), `fast-uri`
+(high, host confusion via backslash authority introducer), `hono`,
+`@hono/node-server` and `@modelcontextprotocol/sdk` (moderate). All five arrived
+transitively through the SDK, which has only two direct dependencies; a
+non-breaking `npm audit fix` cleared every one, moving the SDK 1.29.0 -> 1.30.0.
+The existing 24 tests still pass unchanged.
+
+**Body cap, 5 MiB.** `fetchWithRetry` read bodies with an unbounded
+`res.text()`. Now streamed with a running byte count and aborted mid-stream on
+breach, plus a `Content-Length` fast path that rejects before reading. Reading
+fully and then measuring would already have allocated the memory the cap exists
+to prevent. `TextDecoder` runs over the concatenated buffer rather than per
+chunk -- decoding per chunk corrupts any multi-byte character split across a
+read boundary, which matters for a router serving non-English queries and is
+covered by a test.
+
+**A boundary worth recording rather than overstating:** a response
+*understating* its `Content-Length` cannot overflow the cap, because the
+transport truncates at the declared length before our counter sees the excess.
+The streaming cap covers what the transport does not bound -- chunked responses
+with no declared length. An initial test asserted the cap caught the understated
+case; it did not, and the test was corrected to assert the real behaviour rather
+than a defence we do not have.
+
+**Redirects: 3 hops, scheme-checked, host-pinned where it matters.** Previously
+the platform default (up to 20 hops, no destination inspection). Now followed
+manually. Non-HTTP schemes are rejected. Host pinning applies to **configured
+self-hosted engines only** (Fess, YaCy): their `baseUrl` typically points at
+localhost, so a redirect off-origin is an SSRF pivot rather than normal
+browsing. Public engines target hardcoded hosts and redirect legitimately
+(canonicalisation, CDN hops, archive redirects), so pinning them would break
+real results.
+
+Three new `HttpError.type` values -- `body_too_large`, `too_many_redirects`,
+`redirect_blocked` -- extend the existing union, so the circuit breaker and
+status envelope route them to failover without new handling. All three are
+deterministic and therefore **not** retried; asserted by tests that count server
+hits. The MCP tool contract and the `ok`/`partial`/`coverage_incomplete`
+envelope are unchanged.
+
+Coverage: 24 -> 42 tests. The package's suite now runs under the repository's
+`npm test`.
+
+**Not addressed:** no DNS-rebinding protection. Host validation happens at URL
+level, not at connect time; closing that needs a custom agent and is out of
+scope.

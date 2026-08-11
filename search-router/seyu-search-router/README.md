@@ -189,3 +189,44 @@ tool all pick it up automatically.
 - Per the source doc's own rule, there is intentionally no scraping fallback
   of any kind. `coverage_incomplete` is a terminal, honest answer, not a
   trigger to try something unapproved.
+
+
+## Outbound limits
+
+The router fetches attacker-influenceable content by design: search results are
+chosen by third-party engines from the open web, and the router reads whatever
+comes back. Two bounds apply to every engine request.
+
+**Response body cap — 5 MiB.** Bodies are read by streaming with a running byte
+count and aborted mid-stream on breach; an oversized `Content-Length` is
+rejected before the body is read at all. Reading fully and then measuring would
+already have allocated the memory the cap exists to prevent. The value is set an
+order of magnitude above the largest real payload (a Common Crawl or Wayback CDX
+index page, low hundreds of KB), so it bounds abuse without touching legitimate
+traffic.
+
+Note on scope: a response *understating* its `Content-Length` cannot overflow
+the cap, because the transport truncates at the declared length. The streaming
+counter covers the case the transport does not bound — chunked responses with
+no declared length.
+
+**Redirects — 3 hops, scheme-checked.** Redirects are followed manually so each
+destination can be inspected. Non-HTTP schemes are rejected. For **configured
+self-hosted engines only** (Fess, YaCy), the destination host is pinned to the
+configured origin: their `baseUrl` typically points at localhost, so a redirect
+off-origin is an SSRF pivot rather than legitimate behaviour. Public engines
+target hardcoded hosts and redirect legitimately, so they stay unpinned.
+
+**New failure types**, surfaced per engine in `engineStatus` and treated as
+non-retryable because they are deterministic:
+
+| type | meaning |
+|---|---|
+| `body_too_large` | response exceeded the byte cap |
+| `too_many_redirects` | chain exceeded the hop bound |
+| `redirect_blocked` | non-HTTP scheme, or off-origin for a pinned engine |
+
+A capped engine trips the existing circuit breaker after repeated failures, so
+the router fails over rather than retrying it every search. Bodies are never
+silently truncated: a partial document would yield plausible-looking results
+from incomplete content.
