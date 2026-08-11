@@ -41,6 +41,8 @@ jobs:
 
       # Advisory drift is what let the framework fall 35 patch releases behind
       # before an audit found it. This makes it a push-time signal instead.
+      # Baselined advisories warn; anything un-baselined fails hard. See
+      # scripts/audit-gate.js.
       - name: Audit
         run: npm run audit
 

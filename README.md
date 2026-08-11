@@ -280,8 +280,11 @@ people to ignore it.
 configuration in this repo and prompts interactively, which would hang the
 runner. Configuring it is unaddressed.
 
-**Dependency policy.** Run `npm run audit` (`npm audit --omit=dev`) before
-any dependency change. One advisory is currently **open and accepted**:
+**Dependency policy.** `npm run audit` runs `scripts/audit-gate.js`, which
+audits both packages and fails on any advisory **except** an explicitly
+baselined set. Every baseline entry carries a reason and a removal condition; an
+entry without one is a silent exemption, which is what the gate exists to
+prevent. One advisory is currently baselined:
 `next` reports a high-severity set whose only fix is `next@16.3.0`, a
 breaking major — no 14.x release closes it. See
 `docs/RUNTIME_ARCHITECTURE_NOTES.md` §10 for what it covers and why the
