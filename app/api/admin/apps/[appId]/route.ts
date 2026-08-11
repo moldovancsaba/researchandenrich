@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../../../lib/mongodb'
+import { getDb } from '../../../../../lib/mongodb'
 import { requireApiKey } from '../../../../../lib/api-auth'
 
 const COLLECTION = 'contentcreator_apps'
@@ -18,8 +18,7 @@ export async function GET(request: Request) {
 
   try {
     const appId = getAppId(request)
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const app = await db.collection(COLLECTION).findOne({ appId })
     if (!app) {
@@ -59,8 +58,7 @@ export async function PUT(request: Request) {
   try {
     const appId = getAppId(request)
     const body = await request.json()
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const existing = await db.collection(COLLECTION).findOne({ appId })
     if (!existing) {
@@ -95,8 +93,7 @@ export async function DELETE(request: Request) {
 
   try {
     const appId = getAppId(request)
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const existing = await db.collection(COLLECTION).findOne({ appId })
     if (!existing) {

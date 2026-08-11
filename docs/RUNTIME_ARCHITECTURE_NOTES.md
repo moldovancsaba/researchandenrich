@@ -594,3 +594,53 @@ salesleadgenerator v2.3.0, per §4), so the empty list is correct rather than an
 oversight. Also unchanged: `Email not lowercase: <address>` still includes the
 address, which is personal data -- preserved to keep existing assertions stable,
 but any surface rendering these errors must treat them accordingly.
+
+## 14. MongoClient lifecycle: a connection leak per request -- 2026-08-11
+
+`lib/mongodb.ts` had three compounding defects, all visible in ~20 lines.
+
+**The cache was only ever populated on failure.** `clientPromise` was assigned
+inside the `if (!uri)` reject branch and nowhere else; the success path returned
+`localClient.connect()` uncached. So `if (clientPromise) return clientPromise`
+could only ever be true after a configuration failure, and **every call
+constructed a new `MongoClient` and opened a new connection**. Five route files
+import this. The declared `let client: MongoClient | undefined` was never
+assigned at all.
+
+This matters because the Atlas cluster is shared: `salesleadgenerator` and three
+tenant runtimes use the same `sales.8wytusk.mongodb.net`. Exhausting the
+connection cap from the admin dashboard -- the least important consumer, used by
+one person -- would degrade the lead pipeline.
+
+**`export default getMongoClient()` invoked at module evaluation**, so a
+connection was attempted at import time (including during `next build`) and an
+unset `MONGODB_URI` produced an unhandled rejection rather than a handled error
+at call time.
+
+**`client.db()` took no argument**, so the database came from the URI's path.
+The configured URIs end `/?appName=sales` with no path segment, which resolves
+to `test`.
+
+Fixed: the promise is cached on the success path; connection is lazy (verified
+-- importing the module performs no I/O); a failed initial connection **clears**
+the cache so the next call genuinely retries, rather than replaying a cached
+rejection forever and leaving that instance permanently broken; pool options are
+explicit (`maxPoolSize: 10`, `minPoolSize: 0` for serverless,
+`serverSelectionTimeoutMS: 5000` so an unreachable cluster fails in 5s instead of
+hanging to the platform timeout); and a development global stash prevents one
+client leaking per file save under HMR.
+
+**Deliberate deviation from the plan:** `MONGODB_DB` is *not* hard-required.
+Making it so would break a running deployment that has never set it, and which
+database the live collections actually occupy could not be verified from this
+repository. When it is unset, `getDb()` falls back to the previous implicit
+behaviour and warns **once** with the resolved database name, so the ambiguity
+is visible rather than silent. Setting the variable removes the fallback. The
+value must be confirmed against the live cluster first: a wrong `MONGODB_DB`
+presents as an empty dashboard, indistinguishable from a working deployment with
+no data.
+
+`GET /api/health` now reports `database: { ok, latencyMs }` without failing the
+endpoint, so monitoring distinguishes "app up, database unreachable" from "app
+down". It exposes the error CLASS only, never the message -- the route is
+unauthenticated and driver messages carry hostnames and replica-set topology.

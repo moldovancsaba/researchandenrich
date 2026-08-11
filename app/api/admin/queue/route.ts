@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../../lib/mongodb'
+import { getDb } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
 
 const TENANTS_COLLECTION = 'contentcreator_tenants'
@@ -23,8 +23,7 @@ export async function GET(request: Request) {
   if (authError) return authError
 
   try {
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const tenants = await db.collection(TENANTS_COLLECTION)
       .find({})
@@ -116,8 +115,7 @@ export async function PUT(request: Request) {
       )
     }
 
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     // Extract tenantId and operation from job id (format: queue-<tenantId>-<operation>)
     const updates = jobs.map((job: any) => {
@@ -185,8 +183,7 @@ export async function PATCH(request: Request) {
     const operation = match[2]
     const scheduleField = operation === 'discovery' ? 'discovery.schedule' : 'enrichment.schedule'
 
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     // Fetch tenant to determine active status from the job id alone
     const tenant = await db.collection(TENANTS_COLLECTION).findOne({ tenantId })

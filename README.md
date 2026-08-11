@@ -245,6 +245,15 @@ Deployed on Vercel as a Next.js App Router project. The `vercel.json` is empty (
 Node `>=20.9.0` is required (`engines.node`). Install with `npm ci` — the
 lockfile is authoritative and in sync as of 2026-08-10.
 
+**Environment.** `MONGODB_URI` is required. `MONGODB_DB` selects the
+application database and **should be set explicitly**: when it is absent the
+access layer falls back to whatever database the URI implies and logs the
+resolved name once. Confirm the value against the live cluster before setting
+it — pointing at the wrong database presents as an empty dashboard, which is
+indistinguishable from a working deployment with no data. `GET /api/health`
+reports database reachability and latency without failing, so monitoring can
+tell "app up, database unreachable" from "app down".
+
 **Dependency policy.** Run `npm run audit` (`npm audit --omit=dev`) before
 any dependency change. One advisory is currently **open and accepted**:
 `next` reports a high-severity set whose only fix is `next@16.3.0`, a

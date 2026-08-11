@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../../lib/mongodb'
+import { getDb } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
 
 const COLLECTION = 'contentcreator_apps'
@@ -17,8 +17,7 @@ export async function GET(request: Request) {
   if (authError) return authError
 
   try {
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
     const apps = await db.collection(COLLECTION).find({}).sort({ createdAt: 1 }).toArray()
 
     return NextResponse.json({
@@ -60,8 +59,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const existing = await db.collection(COLLECTION).findOne({ appId })
     if (existing) {

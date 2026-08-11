@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../../../lib/mongodb'
+import { getDb } from '../../../../../lib/mongodb'
 import { requireApiKey } from '../../../../../lib/api-auth'
 
 const COLLECTION = 'contentcreator_tenants'
@@ -18,8 +18,7 @@ export async function GET(request: Request) {
 
   try {
     const tenantId = getTenantId(request)
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const tenant = await db.collection(COLLECTION).findOne({ tenantId })
     if (!tenant) {
@@ -68,8 +67,7 @@ export async function PUT(request: Request) {
   try {
     const tenantId = getTenantId(request)
     const body = await request.json()
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const existing = await db.collection(COLLECTION).findOne({ tenantId })
     if (!existing) {
@@ -104,8 +102,7 @@ export async function DELETE(request: Request) {
 
   try {
     const tenantId = getTenantId(request)
-    const client = await clientPromise
-    const db = client.db()
+    const db = await getDb()
 
     const existing = await db.collection(COLLECTION).findOne({ tenantId })
     if (!existing) {
