@@ -833,3 +833,54 @@ containerised). No accessibility runner exists yet -- `npm run test:a11y` was
 specified in issue #27 but is not delivered here, because the surfaces it would
 target are the ones #14 and #22 rebuild on the design system. Building it
 against components scheduled for replacement would be waste.
+
+## 18. Admin authorization implemented -- 2026-08-11
+
+`lib/api-auth.ts` exported `requireApiKey(_request) { return null }`: an
+unconditional pass, called by every admin route. `DELETE
+/api/admin/tenants/<id>` accepted anonymous requests against production
+MongoDB. Filed as issue #3 on 2026-08-02 and open since.
+
+**Filling the stub in would not have been sufficient.** The credential the
+system was designed around is `NEXT_PUBLIC_SLG_API_KEY`, which Next.js inlines
+into the client bundle at build time -- it is readable by anyone who opens the
+deployed page. Checking against it would have been theatre. The credential
+itself had to change, which is why `ADMIN_API_KEY` is server-only and the
+browser clients move to a session cookie separately.
+
+Implemented with `crypto.timingSafeEqual` over UTF-8 buffers. Length is compared
+first, because `timingSafeEqual` throws on unequal lengths; that leaks only the
+length of the configured secret, a fixed property of the deployment rather than
+of the guess. Three distinct outcomes -- `missing_credential`,
+`invalid_credential`, `auth_misconfigured` -- so the client can render a
+specific cause, but the two 401 messages are deliberately identical:
+distinguishing "wrong length" from "wrong value" would leak comparison detail.
+
+**Ships disabled.** `ADMIN_AUTH_ENABLED` must be `"true"` to enforce, and must
+not be set until the browser clients have migrated -- enabling it early makes
+`/admin` unusable with no recovery path. Bypasses are logged rather than silent,
+because an invisible bypass is precisely how the original stub survived
+unnoticed in production. `GET /api/health` reports `adminAuth` so the rollout
+state is observable without reading environment variables on the deployment.
+
+Fails closed: enforcement on with no configured secret returns 503, never a
+pass. Verified explicitly, including for a whitespace-only secret.
+
+**Structural coverage is the load-bearing part.** `scripts/verify-auth.js`
+enumerates route files from the filesystem -- not a hand-maintained list -- and
+asserts every exported HTTP method calls `requireApiKey`, and that it does so
+*before* acquiring a database connection. A new admin route that forgets the
+check fails CI rather than shipping. The enumeration itself is asserted
+non-empty, because a discovery bug returning `[]` would make every downstream
+loop pass vacuously -- the same failure mode as the anti-contamination gate in
+§13b.
+
+Decision logic lives in `lib/auth-core.ts` with no `next/*` import so it stays
+exercisable without a bundler; `api-auth.ts` is thin NextResponse glue. Same
+split as `errors.ts` / `api-response.ts` in §15.
+
+41 checks. Adds `.env.example`, which the repo has never had.
+
+**Still open:** the browser clients (issue #14) and therefore the flag itself.
+Until `ADMIN_AUTH_ENABLED=true`, this code is inert and the Vercel edge gate
+(#11, also outstanding) remains the only access control.

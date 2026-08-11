@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getDbHealth } from "../../../lib/mongodb"
+import { adminAuthState } from "../../../lib/api-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -19,6 +20,7 @@ export async function GET() {
     status: "ok",
     framework: "nextjs",
     database,
+    adminAuth: adminAuthState(),
     timestamp: new Date().toISOString(),
   })
 }
