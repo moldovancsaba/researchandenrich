@@ -708,3 +708,45 @@ dedupes every copy to the root. `next build` passes on the overridden version.
 **search-router: 0 advisories.** Five (two high) were cleared by a
 non-breaking `npm audit fix`; all arrived transitively through
 `@modelcontextprotocol/sdk`.
+
+## 16. Prompt paths made relative; the OpenClaw workspace is a symlink -- 2026-08-12
+
+All eight prompt files hardcoded absolute paths into one operator's OpenClaw
+workspace: `$HOME/.openclaw/workspace/.env.<tenant>` for credentials, and
+`$HOME/.openclaw/workspace/Agents/contentcreator/search-router/seyu-search-router/AgentFinder`
+for the router. Sixteen lines across eight files. §5 previously left them
+untouched on the reasoning that they worked for OpenClaw and changing them was
+unnecessary risk. That reasoning held only while one deployment existed.
+
+They now reference `$RAE_ROOT`, with `prompts/RUNTIME_PATHS.md` as the
+resolution contract. The resolution order is: explicit `RAE_ROOT` -> the git
+toplevel of whatever clone you are inside -> **the legacy OpenClaw path** -> a
+shallow, bounded search of the usual locations -> an actionable failure telling
+the reader to set `RAE_ROOT` or clone the repo.
+
+Keeping the legacy path as step 3 is what makes this backward compatible: an
+unchanged OpenClaw deployment resolves exactly as before. Verified by running
+the documented resolver from inside the repo (resolves to the repo) and from
+`/tmp` (falls through to the legacy path).
+
+`RUNTIME_PATHS.md` is written for a developer who does **not** know where the
+repo is, because that was the actual failure mode -- a missing file rather than
+a wrong assumption. It also states what not to do next: no new absolute paths,
+and do not remove the legacy fallback until no deployment relies on it.
+
+**Discovered while verifying:** `$HOME/.openclaw/workspace/Agents/contentcreator`
+is not a second checkout. Its `prompts`, `search-router` and `tenants.json` are
+**symlinks into `/Users/Shared/Projects/researchandenrich`**. The OpenClaw
+runtime reads this working copy directly.
+
+Two consequences worth knowing:
+
+- Prompt and config edits take effect in the live runtime **immediately on
+  save**, with no deploy step and no pull. There is no staging boundary between
+  editing a file here and the next cron run using it.
+- The directory is named `contentcreator`, matching the Vercel project name
+  rather than this repository's name, which is why the old absolute paths read
+  as though they pointed at something else. They did not.
+
+`config/cron.yaml` is not symlinked, so how the runtime picks up schedule
+changes is a separate question that has not been established here.

@@ -2,7 +2,7 @@
 
 ## Start-up
 - Source the workspace tenant env before any API or shell actions:
-  `source "$HOME/.openclaw/workspace/.env.dvsc"`
+  `source "${RAE_ENV_DIR:-$RAE_ROOT}/.env.dvsc"` (see `prompts/RUNTIME_PATHS.md` if `$RAE_ROOT` is not set)
 - Use `process.env.SLG_API_KEY` for `x-api-key`.
 - Treat the values in that file as trusted runtime config.
 
@@ -13,7 +13,7 @@
 
 ## Search/router usage
 - Use the local search router for source verification instead of raw `web_fetch` searches.
-- Router runner: `"$HOME/.openclaw/workspace/Agents/contentcreator/search-router/seyu-search-router/AgentFinder"`
+- Router runner: `"$RAE_ROOT/search-router/bin/run-router-search.sh"` (see `prompts/RUNTIME_PATHS.md` if `$RAE_ROOT` is not set)
 - It speaks stdio MCP. Call it for `web_search`, `fetch_page`, and `engine_health`.
 - Start the router if needed, then send properly formed JSON-RPC requests for:
   - `web_search` with `queryType: "general"`

@@ -2,7 +2,7 @@
 
 ## Start-up
 - Source the workspace tenant env before any API or shell actions:
-  `source "$HOME/.openclaw/workspace/.env.classscout"`
+  `source "${RAE_ENV_DIR:-$RAE_ROOT}/.env.classscout"` (see `prompts/RUNTIME_PATHS.md` if `$RAE_ROOT` is not set)
 - Use `process.env.INGEST_API_KEY` as the credential. classscout's auth is
   **not** the `x-api-key` header the sales-lead-api tenants use — send it as
   `Authorization: Bearer <INGEST_API_KEY>` (or `X-Ingest-Key: <INGEST_API_KEY>`).
@@ -12,7 +12,7 @@
 
 ## Search/router usage
 - Use the local search router for discovery searches instead of ad-hoc `web_fetch` searches.
-- Router runner: `"$HOME/.openclaw/workspace/Agents/contentcreator/search-router/seyu-search-router/AgentFinder"`
+- Router runner: `"$RAE_ROOT/search-router/bin/run-router-search.sh"` (see `prompts/RUNTIME_PATHS.md` if `$RAE_ROOT` is not set)
 - It speaks stdio MCP. Call it for `web_search` and `fetch_page`.
 - Start the router if needed, then send properly formed JSON-RPC requests for:
   - `web_search` with `queryType: "general"` or `"small_web"`
