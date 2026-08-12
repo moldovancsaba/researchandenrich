@@ -130,6 +130,25 @@ attribution, or hidden metadata intended as attribution. If a tool inserts
 these automatically, remove them before commit creation whenever
 technically possible.
 
+**Git identity — verify before every commit, every session (owner
+directive 2026-08-12).** Author/committer identity on every commit in
+this repo must be `moldovancsaba <moldovancsaba@gmail.com>` — never an
+AI-provider name/email, regardless of what a fresh sandbox container's
+default `git config` resolves to. **Run `git config user.email` before
+the first commit of any session**; if it is not exactly
+`moldovancsaba@gmail.com`, run `git config --global user.name
+moldovancsaba && git config --global user.email moldovancsaba@gmail.com`
+before committing anything (global, since sandbox containers are
+ephemeral and a per-repo local override won't survive to the next
+session either — the check has to happen every time, not just once). A
+2026-08-12 incident found 12 commits on `main` authored as `Claude
+<noreply@anthropic.com>` because this check was never made — see
+`docs/RUNTIME_ARCHITECTURE_NOTES.md` §10 for the full incident and the
+authorship-rewrite trail. This is the same "no AI attribution" rule the
+Git commits bullet above already states for commit *message* content —
+this makes it explicit that commit *authorship metadata* is equally in
+scope and equally binding.
+
 **Git branches.** Names describe work (`feature/*`, `fix/*`, `refactor/*`,
 `docs/*`, `test/*`, `release/*`, `hotfix/*`, `chore/*` — see this file's
 own Branch policy section above for this repo's actual allowed set:
