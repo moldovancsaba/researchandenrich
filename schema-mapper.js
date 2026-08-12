@@ -91,6 +91,63 @@ function buildEndpoint(base, segments, query) {
   return url;
 }
 
+/**
+ * Resolve which document(s) a forbidden-field / required-field check should
+ * inspect for a given schema family.
+ *
+ * sales-lead-api payloads are the flat record itself. program-api payloads are
+ * an ingest envelope whose provider document sits two levels down, at
+ * `operations[0].documents[i]` for a create or `operations[0].patch` for a
+ * patch. Making that resolution an explicit, named step is the point: the
+ * previous code implicitly assumed a shape only one of the two families
+ * actually produces, and nothing made that assumption visible.
+ *
+ * @returns {{ok: true, documents: object[], context: string[]} | {ok: false, error: string}}
+ */
+function extractSubjectDocuments(schemaFamily, payload) {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { ok: false, error: 'payload must be an object' };
+  }
+
+  if (schemaFamily === 'sales-lead-api') {
+    return { ok: true, documents: [payload], context: ['<payload>'] };
+  }
+
+  if (schemaFamily === 'program-api') {
+    const op = Array.isArray(payload.operations) ? payload.operations[0] : undefined;
+    if (!op) {
+      return { ok: false, error: 'program-api payload must contain operations[0]' };
+    }
+
+    if (op.action === 'patch') {
+      if (op.patch === null || typeof op.patch !== 'object' || Array.isArray(op.patch)) {
+        return { ok: false, error: 'program-api patch operation must contain an object patch' };
+      }
+      return { ok: true, documents: [op.patch], context: ['operations[0].patch'] };
+    }
+
+    if (Array.isArray(op.documents)) {
+      const allObjects = op.documents.every((d) => d !== null && typeof d === 'object' && !Array.isArray(d));
+      if (!allObjects) {
+        return { ok: false, error: 'program-api documents[] must contain only objects' };
+      }
+      return {
+        ok: true,
+        documents: op.documents,
+        context: op.documents.map((_, i) => `operations[0].documents[${i}]`),
+      };
+    }
+
+    return {
+      ok: false,
+      error: 'program-api payload has an unrecognised operation shape: expected '
+        + 'operations[0].documents or operations[0].patch',
+    };
+  }
+
+  return { ok: false, error: `unrecognised schemaFamily: ${schemaFamily}` };
+}
+
 class SchemaMapper {
   constructor() {
     this.tenants = this._loadTenants();
@@ -396,21 +453,37 @@ class SchemaMapper {
     const tenant = this.getTenant(tenantId);
     const errors = [];
 
-    // Check required fields
-    const required = tenant.qualityGate?.requiredFields || [];
-    for (const field of required) {
-      if (!payload[field] || (typeof payload[field] === 'string' && payload[field].trim() === '')) {
-        errors.push(`Missing required field: ${field}`);
-      }
+    // Resolve the document the forbidden/required checks should actually
+    // inspect. These checks used to run against the top level of `payload`.
+    // For program-api that is the ingest ENVELOPE ({ operations: [...] }), so
+    // classscout's 13-entry forbiddenFields list was tested against keys that
+    // are never there and passed vacuously on every call. See
+    // docs/RUNTIME_ARCHITECTURE_NOTES.md for the finding.
+    const extracted = extractSubjectDocuments(tenant.schemaFamily, payload);
+    if (!extracted.ok) {
+      // Fail loudly. Vacuous success on an unrecognised shape is the defect.
+      errors.push(extracted.error);
+      return { valid: false, errors };
     }
 
-    // Check forbidden fields are not present
+    const required = tenant.qualityGate?.requiredFields || [];
     const forbidden = tenant.forbiddenFields || [];
-    for (const field of forbidden) {
-      if (payload[field] !== undefined) {
-        errors.push(`Forbidden field present: ${field}`);
+
+    extracted.documents.forEach((doc, i) => {
+      const where = extracted.context[i];
+      for (const field of forbidden) {
+        if (doc[field] !== undefined) {
+          errors.push(`Forbidden field present: ${field} (at ${where})`);
+        }
       }
-    }
+      for (const field of required) {
+        const value = doc[field];
+        if (value === undefined || value === null
+            || (typeof value === 'string' && value.trim() === '')) {
+          errors.push(`Missing required field: ${field} (at ${where})`);
+        }
+      }
+    });
 
     // Schema-family-specific validation -- dispatches on tenant.schemaFamily
     // (tenants.json), never on tenant identity. See mapToApiPayload() above.
@@ -800,3 +873,4 @@ class SchemaMapper {
 module.exports = SchemaMapper;
 module.exports.InvalidIdentifierError = InvalidIdentifierError;
 module.exports.RECORD_ID_PATTERN = RECORD_ID_PATTERN;
+module.exports.extractSubjectDocuments = extractSubjectDocuments;

@@ -435,6 +435,138 @@ check('getApiEndpoint still throws for an unknown action', () => {
   assert.throws(() => mapper.getApiEndpoint('cogmap', 'frobnicate'), /Unknown action/);
 });
 
+
+// ---------------------------------------------------------------------------
+// Anti-contamination gate (issue #25)
+//
+// The forbidden-field check ran against the TOP LEVEL of its argument. For
+// program-api that argument is the ingest envelope { operations: [...] }, so
+// classscout's 13-entry forbiddenFields list was tested against keys that are
+// never there and passed vacuously on every call. mapToApiPayload's own
+// deletion still protected the write path, but the validator -- the documented
+// "anti-contamination gate" -- enforced nothing.
+//
+// One case per forbidden field, so editing the list in tenants.json cannot
+// silently drop coverage.
+// ---------------------------------------------------------------------------
+
+const CLASSSCOUT_FORBIDDEN = mapper.getTenant('classscout').forbiddenFields || [];
+
+check('classscout declares a non-empty forbiddenFields list', () => {
+  assert.ok(CLASSSCOUT_FORBIDDEN.length > 0, 'nothing to enforce -- coverage would be vacuous');
+});
+
+function classscoutCreate(extra) {
+  return {
+    operations: [{
+      resource: 'providers', action: 'upsertMany',
+      documents: [Object.assign({
+        id: 'prov-test', name: 'Test', category: 'Classes', borough: 'Brooklyn',
+        neighborhood: 'Park Slope', address: '123 Somewhere Street',
+        activityTypes: ['Sports'], ageRanges: ['6–8'], dayTimeTags: ['Weekend'],
+        pricePerClass: 0, shortDescription: 'A test provider record.',
+        longDescription: 'A test provider record long enough to satisfy the minimum length rule.',
+        rating: 0, reviewCount: 0, badges: [],
+        image: 'https://i.ibb.co/abc/x.jpg', email: '', website: 'https://example.com', phone: '',
+      }, extra)],
+    }],
+  };
+}
+
+for (const field of CLASSSCOUT_FORBIDDEN) {
+  check(`classscout create rejects forbidden field in the provider document: ${field}`, () => {
+    const result = mapper.validateForTenant('classscout', classscoutCreate({ [field]: 'x' }));
+    assert.ok(
+      result.errors.some((e) => e.startsWith(`Forbidden field present: ${field}`)),
+      `not rejected. errors: ${JSON.stringify(result.errors)}`);
+  });
+}
+
+for (const field of CLASSSCOUT_FORBIDDEN) {
+  check(`classscout patch rejects forbidden field in the patch object: ${field}`, () => {
+    const payload = {
+      operations: [{ resource: 'provider', action: 'patch', id: 'prov-test',
+                     patch: { [field]: 'x' } }],
+    };
+    const result = mapper.validateForTenant('classscout', payload);
+    assert.ok(
+      result.errors.some((e) => e.startsWith(`Forbidden field present: ${field}`)),
+      `not rejected. errors: ${JSON.stringify(result.errors)}`);
+  });
+}
+
+check('a forbidden field set to null is still rejected', () => {
+  // Explicitly nulling a forbidden field still asserts it into the document.
+  const result = mapper.validateForTenant('classscout', classscoutCreate({ ice: null }));
+  assert.ok(result.errors.some((e) => e.startsWith('Forbidden field present: ice')));
+});
+
+check('violation messages name the location of the offending document', () => {
+  const result = mapper.validateForTenant('classscout', classscoutCreate({ ice: 7 }));
+  assert.ok(result.errors.some((e) => e.includes('(at operations[0].documents[0])')),
+    JSON.stringify(result.errors));
+});
+
+check('a clean classscout create payload still validates', () => {
+  const result = mapper.validateForTenant('classscout', classscoutCreate({}));
+  assert.strictEqual(result.valid, true, JSON.stringify(result.errors));
+});
+
+check('an unrecognised program-api shape fails loudly instead of passing vacuously', () => {
+  for (const bad of [
+    { operations: [] },
+    { operations: [{ resource: 'providers', action: 'upsertMany' }] },
+    { operations: [{ resource: 'providers', action: 'upsertMany', documents: [null] }] },
+    { operations: [{ resource: 'provider', action: 'patch', id: 'prov-x', patch: 'nope' }] },
+  ]) {
+    const result = mapper.validateForTenant('classscout', bad);
+    assert.strictEqual(result.valid, false, `passed vacuously: ${JSON.stringify(bad)}`);
+  }
+});
+
+check('multi-document batches report per-index locations', () => {
+  const payload = {
+    operations: [{
+      resource: 'providers', action: 'upsertMany',
+      documents: [{ id: 'prov-a' }, { id: 'prov-b', ice: 3 }],
+    }],
+  };
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('(at operations[0].documents[1])')),
+    JSON.stringify(result.errors));
+});
+
+check('a sales-lead-api tenant with forbiddenFields rejects a violation', () => {
+  // No real sales-lead tenant sets forbiddenFields (they legitimately share
+  // field names), so a synthetic tenant proves the check runs for that family.
+  const synthetic = new (require('../schema-mapper'))();
+  synthetic.tenants.synthetic = {
+    app: 'researchandenrich', status: 'paused',
+    apiBase: 'https://salesleadgenerator.vercel.app',
+    brandFields: { pro: 'pro_for_organization', con: 'con_for_organization' },
+    forbiddenFields: ['leaked_field'],
+    schemaFamily: 'sales-lead-api', forecastModel: 'deal-size-band',
+  };
+  const result = synthetic.validateForTenant('synthetic', { leaked_field: 'x' });
+  assert.ok(result.errors.some((e) => e.startsWith('Forbidden field present: leaked_field')),
+    JSON.stringify(result.errors));
+});
+
+check('qualityGate.requiredFields resolve against the extracted document', () => {
+  const synthetic = new (require('../schema-mapper'))();
+  synthetic.tenants.reqtest = {
+    app: 'classscout', status: 'paused', apiBase: 'https://classscout.ai',
+    forbiddenFields: [], schemaFamily: 'program-api',
+    qualityGate: { requiredFields: ['name'] },
+  };
+  const missing = {
+    operations: [{ resource: 'providers', action: 'upsertMany', documents: [{ id: 'prov-x' }] }],
+  };
+  const result = synthetic.validateForTenant('reqtest', missing);
+  assert.ok(result.errors.some((e) => e.startsWith('Missing required field: name')),
+    JSON.stringify(result.errors));
+});
+
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {
   console.error('FAILURES ABOVE');
