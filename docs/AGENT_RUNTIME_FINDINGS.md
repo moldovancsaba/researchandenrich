@@ -12,14 +12,21 @@ what failed. Everything below is observed, not predicted.
 | `classscout` | `INGEST_API_KEY`, `IMGBB_API_KEY` | Vercel project `classscout`, production env — pullable |
 | `cogmap` | `SLG_API_KEY` | repo `.env.cogmap` only |
 | `dvsc` | `SLG_API_KEY` | same key as cogmap |
-| `seyu` | `SEYU_API_KEY` | **nowhere.** Not in Vercel, not on disk |
+| `seyu` | `SEYU_API_KEY` | the **same shared `SLG_API_KEY`** as cogmap/dvsc — not a separate secret |
 
 **The `salesleadgenerator` Vercel project holds zero environment variables** — production,
 preview and development are all empty; only Vercel's own `VERCEL_*`/`TURBO_*` system vars
 come back from `vercel env pull`. Whatever authenticates the live `x-api-key` requests is
-not stored there. `seyu` therefore cannot be provisioned from Vercel, and no other tenant's
-key may be substituted for it — the Fixed-Tenant Contract makes that a data-corruption bug,
-not a shortcut.
+not stored there.
+
+**Correction (2026-08-12, same day):** an earlier revision of this document concluded that
+`seyu` "cannot be provisioned" because no `SEYU_API_KEY` existed anywhere. That was wrong.
+seyu is the same salesleadgenerator client as cogmap and dvsc and authenticates with the
+same `SLG_API_KEY`; the prompt simply reads it under a different variable name. Verified by
+calling `GET /api/leads?brand=seyu` with the shared key: HTTP 200, 681 records. The lesson
+worth keeping is that "no separate credential exists" was evidence about the credential
+store, not about the tenant — and the two were conflated. Tenant isolation here is enforced
+by the `brand=` parameter and the Fixed-Tenant Contract, not by separate keys.
 
 The project is reachable by name (`vercel link --yes --project salesleadgenerator`) even
 though it does not appear in `vercel project ls` output. "Not listed" does not mean "no access".
@@ -92,5 +99,6 @@ individually rather than the whole repo — linking the repo root exposes `node_
 ## Status of the four tenants when this was written
 
 `tenants.json` remains the live truth. At time of writing `dvsc` ships `paused` by
-convention and `seyu` is `active` but unprovisionable for lack of a key — so an operator
-running "the enabled tenants" today can actually run `cogmap` and `classscout` only.
+convention. `seyu` is `active` and, contrary to this document's first revision, fully
+provisionable with the shared key — so an operator running "the enabled tenants" today can
+run `cogmap`, `seyu` and `classscout`.
