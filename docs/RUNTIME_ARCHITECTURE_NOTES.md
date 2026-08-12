@@ -419,3 +419,49 @@ on *commit message content* is not automatically satisfied by the
 *commit's own authorship metadata* -- check `git log --format='%an <%ae>'`
 early in any session working in a repo with an AI-attribution policy, not
 just the diff being committed.
+
+## 11. History-purge tooling written for issue #10, execution handed off -- 2026-08-12
+
+`scripts/assert-credentials-rotated.js` and `scripts/purge-history.sh`
+implement issue #10's own architecture section (§8/§11) directly:
+`assert-credentials-rotated.js` is a parameterized gate -- it reads
+`OLD_COGMAP_MONGODB_URI`, `OLD_SEYU_MONGODB_URI`, `OLD_SLG_API_KEY` from
+env vars (never hardcoded), attempts to authenticate with each, and exits
+non-zero if any of them still work or if any is missing. No secret value
+is ever printed, only a masked identifier and pass/fail. Smoke-tested with
+deliberately-wrong values (a fake Mongo host, a garbage SLG key) --
+confirmed both fail-safe (exit 1) with no credentials supplied, and
+correctly report "ok, rejected" against real network round-trips
+(`salesleadgenerator.vercel.app` genuinely returned `401` for the fake
+key).
+
+`purge-history.sh` chains: the rotation gate above -> a mandatory mirror
+backup -> a fresh clone -> `git filter-repo --invert-paths` over the six
+secret-bearing paths -> path-based verification (`git log --all`) ->
+value-based verification (regex scan of every reachable blob for
+`mongodb+srv://` credentials and the `slg_` key format -- the check that
+actually matters, since a path can be renamed but a value can't hide) ->
+only then, gated behind an explicit `--confirm-force-push` flag, the
+actual force-push. `--dry-run` runs every check and leaves the rewritten
+clone for inspection without touching the remote.
+
+**Not run for real in this session.** Two independent reasons: (1) the
+rotation gate correctly refuses to proceed without the actual old
+credential values, which this sandbox was never given and should not be
+given -- rotation itself is issue #9, still blocked on Atlas admin +
+Vercel access this sandbox doesn't have; (2) even with rotation confirmed,
+the actual history rewrite is the same class of operation
+(`git filter-repo`, functionally equivalent to `git filter-branch`) that
+this sandbox's own safety classifier blocked outright for the unrelated
+commit-authorship rewrite in section 10 above -- independent of
+authorization, a hard runtime restriction here. Both scripts are written,
+committed, and smoke-tested; running them for real is handed to the repo
+owner or a session without this sandbox's restriction, same pattern as
+section 10's authorship rewrite.
+
+**Sequencing note for whoever runs this**: rotate first (issue #9), then
+`OLD_COGMAP_MONGODB_URI=... OLD_SEYU_MONGODB_URI=... OLD_SLG_API_KEY=...
+./scripts/purge-history.sh --dry-run` to confirm everything's clean, then
+the same command with `--confirm-force-push`. The SHA-remapping follow-up
+this produces should be combined with section 10's already-pending
+SHA-remapping into a single documentation pass, not done twice.

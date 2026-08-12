@@ -51,8 +51,13 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 ├── scripts/
 │   ├── verify-schema-mapper.js   <- schema-mapper.js regression check (no test
 │   │                                 framework configured in package.json)
-│   └── sync-dvsc-to-admin.js     <- syncs a static-file tenant into the Mongo-backed
-│                                     admin API (not yet run against a live deployment)
+│   ├── sync-dvsc-to-admin.js     <- syncs a static-file tenant into the Mongo-backed
+│   │                                 admin API (not yet run against a live deployment)
+│   ├── assert-credentials-rotated.js <- precondition gate for purge-history.sh (issue
+│   │                                 #10) -- exits non-zero if any old credential
+│   │                                 (issue #9) still authenticates
+│   └── purge-history.sh         <- issue #10's history purge (git filter-repo), gated
+│                                    on assert-credentials-rotated.js passing first
 ├── search-router/              <- the web-search MCP server prompts invoke
 │   ├── agent-runtime.json
 │   ├── bin/run-router-search.sh
