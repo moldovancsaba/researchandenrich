@@ -14,8 +14,6 @@
  */
 'use strict';
 
-require('dotenv').config({ path: require('path').resolve(__dirname, '.env.cogmap') });
-
 const https = require('https');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
@@ -23,15 +21,77 @@ const path = require('path');
 const crypto = require('crypto');
 const SchemaMapper = require(path.resolve(__dirname, 'schema-mapper.js'));
 
-const API_BASE = 'https://salesleadgenerator.vercel.app/api/lead';
 const TENANT = 'cogmap';
 const MAX_RETRIES = 3;
+
+/**
+ * Load a tenant env file without a dependency.
+ *
+ * This used to be `require('dotenv')`, which is in neither `dependencies` nor
+ * `node_modules` -- the runner died with MODULE_NOT_FOUND on a clean checkout
+ * before doing any work. A dependency is not warranted for this: the files use
+ * shell `export KEY="value"` syntax that `source` already handles, and the
+ * repo's contract is that they are sourced.
+ *
+ * It also resolved the path as `__dirname/.env.cogmap`, i.e. inside the clone.
+ * `prompts/RUNTIME_PATHS.md` is explicit that env files normally live OUTSIDE
+ * it, which is why RAE_ENV_DIR exists. Resolution order here matches that
+ * contract: RAE_ENV_DIR, then RAE_ROOT, then the clone as a last resort.
+ *
+ * Values already present in the environment are never overwritten, so an
+ * operator who exports credentials directly does not need the file at all.
+ */
+function loadTenantEnv(tenantId) {
+  const candidates = [
+    process.env.RAE_ENV_DIR,
+    process.env.RAE_ROOT,
+    __dirname,
+  ].filter(Boolean);
+
+  for (const dir of candidates) {
+    const file = path.join(dir, `.env.${tenantId}`);
+    if (!fs.existsSync(file)) continue;
+    for (const rawLine of fs.readFileSync(file, 'utf8').split('\n')) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const match = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+      if (!match) continue;
+      const [, key, rawValue] = match;
+      // Vercel-sourced values arrive quoted; `source` strips the quotes and a
+      // naive parser does not -- a quoted key sent as a header produces a
+      // misleading 401.
+      const value = rawValue.trim().replace(/^(['"])(.*)\1$/, '$2');
+      if (process.env[key] === undefined) process.env[key] = value;
+    }
+    return file;
+  }
+  return null;
+}
+
+const ENV_FILE = loadTenantEnv(TENANT);
 
 function getEnvKey() {
   return process.env.SLG_API_KEY;
 }
 
-function apiRequest(method, body, attempt = 0) {
+/**
+ * Build the target URL through the mapper rather than hardcoding it.
+ *
+ * The previous constant was `https://salesleadgenerator.vercel.app/api/lead` --
+ * singular, so every request 404'd. Hardcoding also bypassed getApiEndpoint's
+ * identifier validation and percent-encoding (commit cf8573d), which exists
+ * because record ids come from web-sourced agent output.
+ *
+ * getApiEndpoint also appends `?brand=<tenantId>`. That matters more than it
+ * looks: salesleadgenerator's resolveBrand() defaults a MISSING brand to
+ * 'cogmap', so a dropped query string is invisible for this tenant and would
+ * silently write another tenant's records into cogmap's collection.
+ */
+function endpointFor(mapper, method, id) {
+  return mapper.getApiEndpoint(TENANT, method.toLowerCase(), id || null);
+}
+
+function apiRequest(mapper, method, body, attempt = 0) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
     const headers = {
@@ -39,11 +99,12 @@ function apiRequest(method, body, attempt = 0) {
       'x-api-key': getEnvKey(),
       'Content-Length': Buffer.byteLength(data),
     };
-    const url = new URL(API_BASE);
+    const url = new URL(endpointFor(mapper, method, body && body.id));
     const opts = {
       hostname: url.hostname,
       port: url.port || 443,
-      path: url.pathname,
+      // pathname + search: dropping the query string drops ?brand=.
+      path: `${url.pathname}${url.search}`,
       method: method,
       headers: headers,
       timeout: 30000,
@@ -55,7 +116,7 @@ function apiRequest(method, body, attempt = 0) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try { resolve(JSON.parse(chunks)); } catch (e) { resolve({ raw: chunks }); }
         } else if (res.statusCode === 429 && attempt < MAX_RETRIES) {
-          setTimeout(() => apiRequest(method, body, attempt + 1).then(resolve).catch(reject), 5000 * (attempt + 1));
+          setTimeout(() => apiRequest(mapper, method, body, attempt + 1).then(resolve).catch(reject), 5000 * (attempt + 1));
         } else {
           reject(new Error(`API ${method} failed: ${res.statusCode} ${chunks}`));
         }
@@ -63,7 +124,7 @@ function apiRequest(method, body, attempt = 0) {
     });
     req.on('error', (e) => {
       if (attempt < MAX_RETRIES) {
-        setTimeout(() => apiRequest(method, body, attempt + 1).then(resolve).catch(reject), 3000 * (attempt + 1));
+        setTimeout(() => apiRequest(mapper, method, body, attempt + 1).then(resolve).catch(reject), 3000 * (attempt + 1));
       } else {
         reject(e);
       }
@@ -129,7 +190,7 @@ async function main() {
         }
         // POST new or PUT existing based on whether it already has an API ID
         const method = result.provider.id ? 'PUT' : 'POST';
-        const response = await apiRequest(method, result.provider);
+        const response = await apiRequest(mapper, method, result.provider);
         if (method === 'POST') {
           stats.posted++;
           console.log(`  ✓ POST ${result.lead} → ${response.id || response.id}`);

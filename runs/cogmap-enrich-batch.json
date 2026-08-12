@@ -1,0 +1,79 @@
+[
+ {
+  "entity_name": "De Anza Force",
+  "url": "https://www.deanzaforce.org/",
+  "region": "US",
+  "country": "US",
+  "industry": "Sports",
+  "sport_or_sector": "Soccer",
+  "level_league": "MLS Next / ECNL",
+  "size": "Large",
+  "priority": "medium",
+  "status": "new",
+  "recommended_tier": "performance",
+  "estimated_participants": 800,
+  "estimated_annual_revenue_usd": 90000,
+  "revenue_model": "per_participant",
+  "value_proposition": "De Anza Force is a top Northern California multi-program club with documented academy output and entry-to-elite pathways, supporting club-wide cognitive assessments across age groups.",
+  "product_fit_notes": "De Anza Force shows multi-team youth soccer structure eligible for club-wide cognitive rollout. 800 estimated participants across age groups supports performance tier deployment.",
+  "contacts": [
+   {
+    "name": "De Anza Force Staff",
+    "title": "Club Director",
+    "email": "",
+    "phone": "",
+    "linkedin": "",
+    "role": "club leadership",
+    "isDecisionMaker": true,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-08-06T07:47:31.186Z",
+    "emailVerificationStatus": null
+   }
+  ],
+  "pro_for_organization": [
+   "Multi-league participation",
+   "25+ year history",
+   "Bay Area market",
+   "Structured pathways"
+  ],
+  "con_for_organization": [
+   "Contact enrichment needed"
+  ],
+  "tags": [
+   "MLS Next",
+   "ECNL",
+   "De Anza Force",
+   "California",
+   "academy"
+  ],
+  "ice": {
+   "impact": 5,
+   "confidence": 5,
+   "ease": 7
+  },
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "pricingByCompany": {
+   "cogLeague ESSENTIAL": {
+    "annualPrice": 175
+   },
+   "cogLeague PERFORMANCE": {
+    "annualPrice": 500
+   },
+   "cogLeague ELITE": {
+    "annualPrice": 400
+   }
+  },
+  "notes": "contact_research:found | 2026-08-08: contact_research:found \u2014 checked official site pages | named contacts found: ['Of Soccer'] | 2026-08-08: contact_research:found \u2014 checked official site pages | named contacts found: ['Of Soccer'] | 2026-08-09: contact_research:found \u2014 checked official site pages | named contacts found: ['Of Soccer'] | 2026-08-09: checked verified source: https://playclubsoccer.org/club/de-anza-force | contact_research:found \u2014 checked official site pages | 2026-08-09: checked verified source: https://playclubsoccer.org/club/de-anza-force | contact_research:found \u2014 checked official site pages",
+  "contactEmails": [],
+  "kanbanColumn": "DISCOVERED",
+  "techSignals": [],
+  "address": "",
+  "general_contact": ""
+ }
+]

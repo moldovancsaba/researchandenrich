@@ -1019,3 +1019,60 @@ untouched (the rule is about not inventing one, not about dropping a real
 score), and the contract file must still document the exception — if the
 operator ever removes it, the gate fails rather than letting this repo's
 exclusion silently persist without justification.
+
+## 18. run-cogmap-enrichment-lean.js could not run at all -- 2026-08-13
+
+Reported by the operator after the first cogmap cycle under the aligned
+contract. Four defects, two they hit and two found while fixing those. The
+runner is application code, so this is a repo-developer fix under
+`docs/AGENT_COLLABORATION_CONTRACT.md` §1.
+
+**1. `require('dotenv')` — MODULE_NOT_FOUND on a clean checkout.** `dotenv` is
+in neither `dependencies` nor `node_modules`, so the runner died at line 17
+before doing any work. Replaced with a ~20-line loader rather than adding the
+dependency: the env files use shell `export KEY="value"` syntax that `source`
+already handles, and this repo's contract is that they are sourced. The loader
+strips surrounding quotes, because Vercel-sourced values arrive quoted and an
+unstripped quote in an `x-api-key` header produces a misleading 401 (§8 of the
+operator runbook). Values already in the environment are never overwritten, so
+an operator who exports credentials directly needs no file.
+
+**2. `API_BASE = '.../api/lead'` — singular, so every request 404'd.** Now built
+by `getApiEndpoint`, which the operator suggested. Hardcoding also bypassed that
+function's identifier validation and percent-encoding (commit `cf8573d`), which
+exist precisely because record ids come from web-sourced agent output.
+
+**3. The env path ignored `RAE_ENV_DIR`.** It resolved `__dirname/.env.cogmap`,
+i.e. inside the clone. `prompts/RUNTIME_PATHS.md` states env files normally live
+outside it. Resolution now follows the documented contract: `RAE_ENV_DIR`, then
+`RAE_ROOT`, then the clone as a last resort. Verified loading from the
+operator's real workspace path.
+
+**4. The request dropped the query string.** `apiRequest` built `path` from
+`url.pathname` alone, discarding `?brand=`. This is the most dangerous of the
+four and the least visible: salesleadgenerator's `resolveBrand()` defaults a
+**missing** brand to `cogmap` (§4a), so on this tenant the bug is invisible —
+every write lands correctly by accident. Copy this runner for `seyu` or `dvsc`
+and it would silently write their records into cogmap's collection. Now
+`pathname + search`.
+
+`scripts/verify-runners.js` (6 checks) makes all four structural: every
+`require()` must resolve, no runner may hardcode a salesleadgenerator URL, a
+request built from a `URL` must include `url.search`, any runner reading a
+tenant env file must honour `RAE_ENV_DIR`, and the runner must load without
+throwing. Verified by reintroducing defects 1 and 2 and watching the gate fail.
+Discovery is asserted non-empty so a broken glob cannot pass vacuously.
+
+`scripts/verify-helpers.js` was recovered from `archive/dev-2026-08-12`. It was
+written during the audit branch and never carried across when that work was
+cherry-picked onto `main`, so the first structural check to need it failed on a
+missing module. Worth noting as a cherry-pick hazard: the commits were ported,
+a shared helper they depended on was not.
+
+**Scope, from the operator:** the cycle confirmed the backfill reaches
+production — one live cogmap record went from 36 keys to 45, with nine
+previously-absent fields arriving as `""`/`[]` and nothing stripped between the
+mapper and the API — and that `ice` arrives scored and passed through untouched
+with `ticketSizeEstimate` recomputed `method: "tier_band"`. That is one record.
+The full-catalog percentages (`sportCode` 90/84/0%) will not move until many
+records are rewritten. The mechanism works; the gaps have not closed.
