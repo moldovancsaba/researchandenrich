@@ -44,21 +44,31 @@ A change is not done until all of these are true:
 
 ## Tenant-status changes: the one rule that actually matters
 
-**A commit that changes any tenant's `status` or `enabled` fields in
-`tenants.json` must say so explicitly for every tenant it touches — not
-just the one the task was about.** On 2026-08-03, a commit scoped as
-"narrow classscout to Manhattan/Brooklyn sport Classes/Camps" also paused
-`cogmap` and `seyu` — two active, unrelated, revenue-relevant tenants — as
-a bundled side effect citing an out-of-band instruction that wasn't
-visible anywhere in this repo. It went unnoticed until a second session
-happened to diff against it for an unrelated reason. Full writeup:
-`docs/RUNTIME_ARCHITECTURE_NOTES.md` §9. Tracked follow-up on preventing a
-repeat: issue #6.
+**A single commit may change `status`/`enabled` for at most ONE tenant in
+`tenants.json`.** On 2026-08-03, a commit scoped as "narrow classscout to
+Manhattan/Brooklyn sport Classes/Camps" also paused `cogmap` and `seyu` —
+two active, unrelated, revenue-relevant tenants — as a bundled side effect
+citing an out-of-band instruction that wasn't visible anywhere in this
+repo. It went unnoticed until a second session happened to diff against it
+for an unrelated reason. Full writeup: `docs/RUNTIME_ARCHITECTURE_NOTES.md`
+§9.
 
-Concretely: if your task only concerns tenant X, do not touch tenant Y's
-`status`/`enabled` in the same commit unless the task explicitly says to,
-and if it does, name Y specifically in the commit message — "pause X" is
-not sufficient when the diff also touches Y.
+**This is now enforced, not just documented**: `scripts/check-tenant-status-diff.js`
+runs on every push to `main`/`preview`/`dev` via
+`.github/workflows/tenant-status-guard.yml`. Note what it does and doesn't
+do — verified directly against the real incident commit before trusting
+it: that commit's message already *named* every tenant it touched
+("Pause cogmap/seyu/dvsc; narrow classscout...") and would have passed a
+naming-only check, so naming isn't the enforced rule. The enforced rule is
+structural: touching N tenants' status/enabled requires N separate
+commits, full stop — unless the commit carries an explicit
+`Multi-tenant-change: <reason>` trailer for the rare genuinely-deliberate
+case (this trailer was itself needed for the real fix of this same
+incident, which restored `cogmap`+`seyu` together in one commit). This
+can't verify authorization — no mechanical diff check can — but it removes
+the specific mechanism that let the incident slip through: bundling an
+unrelated tenant change inside a commit that reads as being about
+something else.
 
 ## Multiple agent sessions, one `main`
 

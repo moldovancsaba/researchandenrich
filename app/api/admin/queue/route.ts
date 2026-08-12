@@ -52,9 +52,7 @@ export async function GET(request: Request) {
         retry: { maxAttempts: 3, backoffMs: 5000 },
         dependencies: [],
         healthCheck: {
-          endpoint: tenant.appId === 'classscout-api'
-            ? 'GET /api/programs?limit=1'
-            : `GET /api/leads?brand=${tenant.tenantId}&limit=1`,
+          endpoint: `GET /api/leads?brand=${tenant.tenantId}&limit=1`,
           expectedStatus: 200,
         },
       })
@@ -73,9 +71,7 @@ export async function GET(request: Request) {
         retry: { maxAttempts: 3, backoffMs: 5000 },
         dependencies: [`${prefix}-discovery`],
         healthCheck: {
-          endpoint: tenant.appId === 'classscout-api'
-            ? 'GET /api/programs?limit=1'
-            : `GET /api/leads?brand=${tenant.tenantId}&limit=1`,
+          endpoint: `GET /api/leads?brand=${tenant.tenantId}&limit=1`,
           expectedStatus: 200,
         },
       })

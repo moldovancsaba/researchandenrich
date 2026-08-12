@@ -1,0 +1,45 @@
+name: Tenant status guard
+
+# Enforces scripts/check-tenant-status-diff.js on every push to a durable
+# branch: a single commit may change status/enabled for at most one tenant
+# in tenants.json, unless it carries an explicit "Multi-tenant-change:"
+# trailer. See that script's own docblock and
+# docs/RUNTIME_ARCHITECTURE_NOTES.md section 9 for why this exists.
+#
+# This repo has no branch-protection/required-review gate (multiple agent
+# sessions push directly to main/preview/dev) -- this workflow does not add
+# one. It cannot block a push after the fact; what it does is make a
+# violation immediately visible as a failing check on the commit, instead
+# of silently landing unnoticed the way the 2026-08-03 incident did.
+
+on:
+  push:
+    branches: [main, preview, dev]
+
+jobs:
+  check-tenant-status-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check every commit in this push
+        run: |
+          set -e
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "New branch push with no prior history -- checking only the tip commit."
+            node scripts/check-tenant-status-diff.js "${{ github.sha }}^" "${{ github.sha }}" --verbose
+            exit $?
+          fi
+
+          FAILED=0
+          for COMMIT in $(git rev-list ${{ github.event.before }}..${{ github.event.after }}); do
+            echo "--- Checking $COMMIT ---"
+            node scripts/check-tenant-status-diff.js "$COMMIT^" "$COMMIT" --verbose || FAILED=1
+          done
+          exit $FAILED
