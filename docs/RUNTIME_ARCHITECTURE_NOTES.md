@@ -1047,3 +1047,82 @@ Coverage: `scripts/verify-edge.js`, 22 checks -- limiter windows, bucket
 routing, `/api/health` exemption, header presence, the `script-src` prohibition,
 HSTS conservatism, and structural assertions that the middleware performs no I/O
 on the request path.
+
+## 22. Admin session authentication and the GDS surface -- 2026-08-12
+
+Issue #14, and the client half of #22.
+
+**The credential is out of the browser bundle.** Every admin fetch previously
+sent `process.env.NEXT_PUBLIC_SLG_API_KEY`; `NEXT_PUBLIC_*` is inlined by
+Next.js at build time, so the page published its own credential. The queue page
+sent nothing at all. Verified against the built output:
+`grep -rl NEXT_PUBLIC_SLG_API_KEY .next/static/` returns nothing, and a
+structural check asserts no client component references a `NEXT_PUBLIC_*`
+credential and that every admin `fetch` sends `credentials: "same-origin"`.
+
+That last check earned its place immediately: it found two `fetch` calls in
+`app/admin/page.tsx` that had lost the header during migration but had not
+gained `credentials`, so they would have silently stopped authenticating.
+
+**Sessions.** `POST /api/admin/session` validates the credential once,
+server-side, in constant time, and exchanges it for an opaque signed cookie:
+`HttpOnly`, `SameSite=Strict`, `Path=/`, explicit `Max-Age`, `Secure` in
+production. `SameSite=Strict` is the CSRF control for the state-changing admin
+routes. The token carries only `sub`/`iat`/`exp`/`jti` -- no credential
+material -- so it cannot be replayed against the `x-api-key` header path.
+Signature is verified before expiry, so a forged token learns nothing about
+whether its payload would otherwise have been in date.
+
+`ADMIN_SESSION_SECRET` is deliberately separate from `ADMIN_API_KEY`: rotating
+it invalidates every live session without disturbing the automation credential,
+which is the emergency revoke. Sign-out clears the cookie but, since sessions
+are stateless, revokes only that cookie.
+
+The sign-in route is the one admin route exempt from `requireApiKey` -- gating
+the path by which authorization is obtained would make sign-in impossible.
+`scripts/verify-auth.js` now carries a **named exemption list** where each entry
+must state a reason and a compensating control, and asserts both: the route
+exists (a stale exemption is a hole) and it is covered by the strict rate-limit
+bucket. An unnamed exemption would be exactly the silent hole this suite exists
+to prevent.
+
+Verified end to end against a production build: unauthenticated `401`; wrong
+credential `invalid_credential`; correct credential issues a session; the same
+request with the cookie returns `503 misconfigured`, i.e. it passed
+authentication and failed at the unconfigured database; sign-out returns to
+`401`; a forged cookie returns `401`.
+
+**GDS.** `app/admin/layout.tsx` now mounts `Providers`, which wraps the surface
+in `GdsProvider` from `@sovereignsquad/gds-theme/client` and imports the
+package's stylesheet. Note the layout imported `Providers` but never rendered
+it -- the component was a passthrough returning `<>{children}</>`, so the admin
+surface had no provider at all.
+
+GDS supplies theme tokens, colour scheme, overlay adapter and i18n; primitives
+rendered beneath it inherit GDS typography, spacing, colour, radius, elevation
+and interaction tokens. That is the intended composition for a Mantine-based
+design system -- see §19. `GdsAccessGate` was evaluated and rejected for this:
+it is an entitlement/paywall gate (`preview`/`protectedContent`), not an
+operator sign-in surface.
+
+Accessibility of the sign-in surface: a real `<form>` with a labelled
+`PasswordInput` (`autocomplete="current-password"`, so password managers work);
+errors bound via `aria-describedby` and announced through `aria-live`, with
+`assertive` reserved for session expiry because the operator's next action will
+otherwise fail; focus returned to the field after a failed attempt; the
+rate-limit countdown exposed as text and updated once per second rather than as
+a purely visual timer.
+
+**Not delivered.** The queue page's drag-to-reorder is still pointer-only, and
+the tenant delete still uses native `window.confirm()`. Both belong to #22's
+client half. `npm run test:a11y` via `@sovereignsquad/gds-a11y` is also not
+wired -- it needs Playwright and a running server, which is a CI shape this
+repo does not yet have. The accessibility work above is implemented and
+reviewable but has **not** been verified by an automated axe scan or a manual
+screen-reader pass; that is stated rather than implied.
+
+**Constraint worth recording:** the verify scripts require `.ts` modules
+directly via Node's type-stripping, which rejects TypeScript *parameter
+properties* (`constructor(public readonly x: T)`) because they emit code rather
+than only types. `lib/admin-client.ts` assigns those fields explicitly. Any
+shared module intended for the verify scripts must avoid that syntax.

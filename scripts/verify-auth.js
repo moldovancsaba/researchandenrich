@@ -207,6 +207,41 @@ function routeFiles(dir) {
 
 const files = routeFiles(ADMIN_DIR);
 
+/**
+ * Routes deliberately exempt from requireApiKey, each with a reason and a
+ * compensating control. An exemption without both is a silent hole, which is
+ * what this whole suite exists to prevent -- so each entry is asserted below,
+ * not merely listed.
+ */
+const AUTH_EXEMPT = [
+  {
+    file: 'app/api/admin/session/route.ts',
+    reason: 'the sign-in path: it is how authorization is obtained, so gating '
+      + 'it would make sign-in impossible',
+    compensatingControl: 'strict rate-limit bucket (5 per 15 minutes)',
+  },
+];
+
+for (const exempt of AUTH_EXEMPT) {
+  check(`exempt route ${exempt.file} exists (a stale exemption is a hole)`, () => {
+    const full = path.join(__dirname, '..', exempt.file);
+    assert.ok(fs.existsSync(full),
+      'exemption names a file that no longer exists -- remove it');
+  });
+
+  check(`exempt route ${exempt.file} is rate limited instead`, () => {
+    // The exemption is only acceptable because an unauthenticated caller
+    // cannot hammer it.
+    const { bucketFor } = require('../lib/rate-limit.ts');
+    const route = '/' + exempt.file.replace(/^app\//, '').replace(/\/route\.ts$/, '');
+    const bucket = bucketFor(route, 'POST');
+    assert.ok(bucket, `${route} is auth-exempt AND unlimited`);
+    assert.strictEqual(bucket.name, 'signin');
+  });
+}
+
+const exemptFiles = new Set(AUTH_EXEMPT.map((e) => e.file));
+
 check('admin route files are discovered (guards against a vacuous pass)', () => {
   // An enumeration bug returning [] would make every loop below pass silently —
   // the same failure mode as the anti-contamination gate this repo already fixed.
@@ -215,6 +250,7 @@ check('admin route files are discovered (guards against a vacuous pass)', () => 
 
 for (const file of files) {
   const rel = path.relative(path.join(__dirname, '..'), file);
+  if (exemptFiles.has(rel)) continue;
   const source = fs.readFileSync(file, 'utf8');
 
   check(`${rel} imports requireApiKey`, () => {
@@ -252,6 +288,34 @@ for (const file of files) {
     });
   }
 }
+
+
+// ---------------------------------------------------------------------------
+// Session cookie path
+// ---------------------------------------------------------------------------
+
+check('a valid session authorizes without any header', () => {
+  const d = decideAuth(headers(), { ...ENABLED, sessionValid: true });
+  assert.equal(d.outcome, 'pass');
+  assert.equal(d.status, null);
+});
+
+check('an invalid session still requires a credential', () => {
+  const d = decideAuth(headers(), { ...ENABLED, sessionValid: false });
+  assert.equal(d.code, 'missing_credential');
+});
+
+check('a session cannot bypass the misconfigured check', () => {
+  // Fail-closed must hold even for a session holder: an unconfigured server
+  // should not serve admin writes to anyone.
+  const d = decideAuth(headers(), { enabled: true, secret: '', sessionValid: true });
+  assert.equal(d.status, 503);
+});
+
+check('a session is ignored while enforcement is off', () => {
+  const d = decideAuth(headers(), { enabled: false, secret: SECRET, sessionValid: true });
+  assert.equal(d.outcome, 'bypass');
+});
 
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {

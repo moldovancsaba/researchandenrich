@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { decideAuth } from "./auth-core"
 import { log } from "./errors"
+import { readSessionCookie, verifySession } from "./session"
 
 /**
  * Admin API authorization.
@@ -34,9 +35,19 @@ export function requireApiKey(request: Request): Response | null {
     }
   })()
 
+  const cookieToken = readSessionCookie(request.headers.get("cookie"))
+  const sessionValid =
+    cookieToken !== null &&
+    verifySession(
+      cookieToken,
+      process.env.ADMIN_SESSION_SECRET ?? "",
+      Math.floor(Date.now() / 1000)
+    ).ok
+
   const decision = decideAuth(request.headers, {
     enabled: process.env.ADMIN_AUTH_ENABLED === "true",
     secret: process.env.ADMIN_API_KEY ?? "",
+    sessionValid,
   })
 
   log({

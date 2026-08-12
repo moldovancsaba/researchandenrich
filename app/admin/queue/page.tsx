@@ -47,8 +47,8 @@ export default function QueuePage() {
     const load = async () => {
       try {
         const [tenantsRes, queueRes] = await Promise.all([
-          fetch('/api/admin/tenants'),
-          fetch('/api/admin/queue'),
+          fetch('/api/admin/tenants', { credentials: 'same-origin' }),
+          fetch('/api/admin/queue', { credentials: 'same-origin' }),
         ])
         if (!tenantsRes.ok) throw new Error(`HTTP ${tenantsRes.status}`)
         if (!queueRes.ok) throw new Error(`HTTP ${queueRes.status}`)
@@ -121,13 +121,14 @@ export default function QueuePage() {
               const toggleJob = async (jobId: string, currentEnabled: boolean) => {
     try {
       const res = await fetch(`/api/admin/queue`, {
+        credentials: 'same-origin',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId, enabled: !currentEnabled }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       // Refresh the jobs list
-      const queueRes = await fetch('/api/admin/queue')
+      const queueRes = await fetch('/api/admin/queue', { credentials: 'same-origin' })
       const queueData = await queueRes.json()
       setJobs(queueData.jobs || [])
     } catch (e: any) {

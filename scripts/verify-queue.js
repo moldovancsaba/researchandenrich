@@ -163,14 +163,10 @@ const rawRouteSource = fs.readFileSync(
   'utf8'
 );
 
-/**
- * Comments are stripped before matching. The route's own docblocks NAME the
- * defective field while explaining that it is no longer written -- matching
- * prose would fire on the documentation rather than the code.
- */
-const routeSource = rawRouteSource
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/(^|[^:])\/\/.*$/gm, '$1');
+// Comments are stripped before matching: the route's own docblocks NAME the
+// defective field while explaining that it is no longer written.
+const { codeOnly } = require('./verify-helpers');
+const routeSource = codeOnly(rawRouteSource, 'bulkWrite');
 
 check('the route never writes schedule.enabled (comments excluded)', () => {
   assert.ok(!/schedule\.enabled/.test(routeSource),

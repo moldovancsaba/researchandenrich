@@ -87,7 +87,14 @@ export function extractSessionCookie(headers: {
  */
 export function decideAuth(
   headers: { get(name: string): string | null },
-  env: { enabled: boolean; secret: string }
+  env: {
+    enabled: boolean
+    secret: string
+    /** Supplied by the route layer, which owns session verification. When it
+     *  returns true the caller is authorized without presenting a header --
+     *  this is how the browser authenticates. */
+    sessionValid?: boolean
+  }
 ): AuthDecision {
   if (!env.enabled) {
     // A bypass is still an outcome to record. An invisible bypass is how the
@@ -108,6 +115,18 @@ export function decideAuth(
       code: "auth_misconfigured",
       message:
         "Admin authentication is enabled but no credential is configured on the server.",
+      keyFingerprint: null,
+    }
+  }
+
+  // A valid session cookie authorizes the browser. Checked before the header
+  // so an operator with a live session is never asked for a credential.
+  if (env.sessionValid) {
+    return {
+      outcome: "pass",
+      status: null,
+      code: null,
+      message: null,
       keyFingerprint: null,
     }
   }

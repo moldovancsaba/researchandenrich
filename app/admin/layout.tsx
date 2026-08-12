@@ -1,5 +1,6 @@
 import { Inter } from "next/font/google";
 
+import "@sovereignsquad/gds-theme/styles.css";
 import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
 import { Providers } from "./components/Providers";
@@ -30,7 +31,9 @@ export default function RootLayout({
             </div>
           </div>
         </nav>
-        <main>{children}</main>
+        <main>
+          <Providers>{children}</Providers>
+        </main>
         <PwaSetup />
       </body>
     </html>
