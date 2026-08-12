@@ -101,7 +101,7 @@ for (const tenantId of realTenants) {
 check("a synthetic 'newbrand' tenant (not in tenants.json) works identically with zero code changes", () => {
   const synthetic = new SchemaMapper();
   synthetic.tenants.newbrand = {
-    app: 'researchandenrich',
+    app: 'salesleadgenerator',
     apiBase: 'https://salesleadgenerator.vercel.app',
     forbiddenFields: [],
     schemaFamily: 'sales-lead-api',
@@ -117,7 +117,7 @@ check("a synthetic 'newbrand' tenant (not in tenants.json) works identically wit
 // silently fall through to some default behavior.
 check('a tenant with no schemaFamily throws rather than silently defaulting', () => {
   const broken = new SchemaMapper();
-  broken.tenants.broken = { app: 'researchandenrich', apiBase: 'https://example.com', forbiddenFields: [] };
+  broken.tenants.broken = { app: 'salesleadgenerator', apiBase: 'https://example.com', forbiddenFields: [] };
   assert.throws(() => broken.getApiEndpoint('broken', 'post'), /schemaFamily/);
   assert.throws(() => broken.mapToApiPayload('broken', {}), /schemaFamily/);
 });
@@ -541,7 +541,7 @@ check('a sales-lead-api tenant with forbiddenFields rejects a violation', () => 
   // field names), so a synthetic tenant proves the check runs for that family.
   const synthetic = new (require('../schema-mapper'))();
   synthetic.tenants.synthetic = {
-    app: 'researchandenrich', status: 'paused',
+    app: 'salesleadgenerator', status: 'paused',
     apiBase: 'https://salesleadgenerator.vercel.app',
     brandFields: { pro: 'pro_for_organization', con: 'con_for_organization' },
     forbiddenFields: ['leaked_field'],

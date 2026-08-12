@@ -1,7 +1,7 @@
 {
   "tenants": {
     "cogmap": {
-      "app": "researchandenrich",
+      "app": "salesleadgenerator",
       "displayName": "CogMap",
       "status": "active",
       "apiBase": "https://salesleadgenerator.vercel.app",
@@ -35,7 +35,7 @@
       }
     },
     "seyu": {
-      "app": "researchandenrich",
+      "app": "salesleadgenerator",
       "displayName": "Seyu",
       "status": "active",
       "apiBase": "https://salesleadgenerator.vercel.app",
@@ -69,7 +69,7 @@
       }
     },
     "dvsc": {
-      "app": "researchandenrich",
+      "app": "salesleadgenerator",
       "displayName": "DVSC",
       "status": "paused",
       "apiBase": "https://salesleadgenerator.vercel.app",

@@ -6,7 +6,7 @@
 schedule:
   - worker: cogmap-discovery
     tenant: cogmap
-    app: researchandenrich
+    app: salesleadgenerator
     operation: discovery
     prompt: prompts/discovery/cogmap.md
     cron: "*/45 * * * *"
@@ -19,7 +19,7 @@ schedule:
 
   - worker: cogmap-enrichment
     tenant: cogmap
-    app: researchandenrich
+    app: salesleadgenerator
     operation: enrichment
     prompt: prompts/enrichment/cogmap.md
     cron: "*/45 * * * *"
@@ -32,7 +32,7 @@ schedule:
 
   - worker: seyu-discovery
     tenant: seyu
-    app: researchandenrich
+    app: salesleadgenerator
     operation: discovery
     prompt: prompts/discovery/seyu.md
     cron: "*/45 * * * *"
@@ -45,7 +45,7 @@ schedule:
 
   - worker: seyu-enrichment
     tenant: seyu
-    app: researchandenrich
+    app: salesleadgenerator
     operation: enrichment
     prompt: prompts/enrichment/seyu.md
     cron: "*/45 * * * *"
@@ -58,7 +58,7 @@ schedule:
 
   - worker: dvsc-discovery
     tenant: dvsc
-    app: researchandenrich
+    app: salesleadgenerator
     operation: discovery
     prompt: prompts/discovery/dvsc.md
     cron: "*/45 * * * *"
@@ -71,7 +71,7 @@ schedule:
 
   - worker: dvsc-enrichment
     tenant: dvsc
-    app: researchandenrich
+    app: salesleadgenerator
     operation: enrichment
     prompt: prompts/enrichment/dvsc.md
     cron: "*/45 * * * *"

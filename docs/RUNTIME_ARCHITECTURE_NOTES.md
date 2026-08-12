@@ -645,3 +645,33 @@ salesleadgenerator v2.3.0, per §4), so the empty list is correct rather than an
 oversight. Also unchanged: `Email not lowercase: <address>` still includes the
 address, which is personal data -- preserved to keep existing assertions stable,
 but any surface rendering these errors must treat them accordingly.
+
+## 23. apps.yaml renamed to name its consumers -- 2026-08-12
+
+The `apps:` map lists the third-party applications this service delivers
+research into. One entry was named `researchandenrich` -- this repo's own name,
+i.e. the service rather than the application being served. Its three tenants
+(`cogmap`, `seyu`, `dvsc`) all write to `salesleadgenerator.vercel.app`, so the
+entry is the salesleadgenerator app. Renamed to `salesleadgenerator`, matching
+`classscout`, which was already named after the external app it serves.
+
+Both are separate repositories with their own deployments. This repo holds only
+the prompts, schema mapping and config needed to write into them; no source from
+either lives here, and their schemas are mirrored rather than imported so this
+repo builds and tests standalone. The `apps.yaml` header now says so explicitly,
+because "Research domain groupings" did not convey it.
+
+Scope of the change: the `app` field on three tenants in `tenants.json`, the
+key/`appId`/`displayName`/`description` in `apps.yaml`, synthetic fixtures in
+`scripts/verify-schema-mapper.js`, and a regenerated `config/cron.yaml`. That
+regeneration touched exactly six lines -- the `app:` field on the six
+sales-lead-api entries -- with no schedule, enablement or ordering change.
+
+Nothing dispatches on the app id: `schema-mapper.js` keys on `schemaFamily` and
+`config/cron-generator.js` only copies `tenantConfig.app` through to the output.
+The one place that did key on an app id -- the `/admin` queue route's
+`appId === 'classscout-api'` special case -- was removed with the dashboard.
+
+`scripts/test-classscout-live.js` still contains "researchandenrich" in a test
+record id and description. That is the repo/service name and is correct there;
+it is not the app id.
