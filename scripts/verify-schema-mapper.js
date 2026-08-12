@@ -780,6 +780,124 @@ check('forecastModel no longer changes the payload shape', () => {
   assert.deepStrictEqual(a, b, 'forecastModel still switches the shape');
 });
 
+
+// ---------------------------------------------------------------------------
+// Mapper <-> prompt contract parity (operator/repo shared contract)
+//
+// prompts/shared/sales-lead-fields.md is the operator's file and the source of
+// truth for WHICH fields exist. The mapper backfills them so omission is
+// structurally impossible rather than a prompt-compliance question. These
+// checks fail if the two drift -- a field the operator adds must be backfilled
+// here, or explicitly recorded as server-computed.
+// ---------------------------------------------------------------------------
+
+const CONTRACT_PATH = require('path').join(
+  __dirname, '..', 'prompts', 'shared', 'sales-lead-fields.md');
+const {
+  SALES_LEAD_CONTRACT_FIELDS,
+  SALES_LEAD_SERVER_COMPUTED_FIELDS,
+} = require('../schema-mapper');
+
+/** Field names are the backticked identifiers in the contract's bullet list. */
+function contractFieldNames() {
+  const md = require('fs').readFileSync(CONTRACT_PATH, 'utf8');
+  const names = new Set();
+  for (const line of md.split('\n')) {
+    if (!line.trimStart().startsWith('-')) continue;
+    for (const m of line.matchAll(/`([A-Za-z_][A-Za-z0-9_]*)`/g)) {
+      // Skip prose references to legacy/forbidden names, which the contract
+      // mentions only to prohibit them.
+      if (/^(pro|con)_for_$/.test(m[1])) continue;
+      names.add(m[1]);
+    }
+  }
+  return names;
+}
+
+check('the prompt contract file is parseable and non-empty', () => {
+  // Guards the guard: an empty parse would make every check below vacuous.
+  assert.ok(contractFieldNames().size >= 30,
+    `only parsed ${contractFieldNames().size} field names from the contract`);
+});
+
+check('every contract field is backfilled or recorded as server-computed', () => {
+  const contract = contractFieldNames();
+  const handled = new Set([
+    ...Object.keys(SALES_LEAD_CONTRACT_FIELDS),
+    ...SALES_LEAD_SERVER_COMPUTED_FIELDS,
+    // Named in the contract only to forbid them.
+    'pro_for_tenant', 'con_for_tenant',
+  ]);
+  const missing = [...contract].filter((f) => !handled.has(f)
+    && !/^(pro|con)_for_/.test(f));
+  assert.deepStrictEqual(missing, [],
+    `contract fields neither backfilled nor recorded as server-computed: ${missing.join(', ')}. `
+    + 'Add them to SALES_LEAD_CONTRACT_FIELDS, or to SALES_LEAD_SERVER_COMPUTED_FIELDS '
+    + 'with evidence that salesleadgenerator computes them.');
+});
+
+check('the mapper backfills nothing the contract does not list', () => {
+  const contract = contractFieldNames();
+  const extra = Object.keys(SALES_LEAD_CONTRACT_FIELDS).filter((f) => !contract.has(f));
+  assert.deepStrictEqual(extra, [],
+    `mapper backfills fields absent from the prompt contract: ${extra.join(', ')}`);
+});
+
+check('server-computed fields are NOT backfilled', () => {
+  // Sending an empty value for a field the server derives risks clobbering a
+  // correct one. Absent is the current working behaviour; empty is unverified.
+  for (const field of SALES_LEAD_SERVER_COMPUTED_FIELDS) {
+    assert.ok(!(field in SALES_LEAD_CONTRACT_FIELDS), `${field} must not be backfilled`);
+    for (const id of SALES_LEAD_TENANTS) {
+      const out = mapper.mapToApiPayload(id, {});
+      assert.ok(!(field in out), `${id} emitted server-computed ${field}`);
+    }
+  }
+});
+
+check('every tenant emits every backfilled contract field', () => {
+  for (const id of SALES_LEAD_TENANTS) {
+    const out = mapper.mapToApiPayload(id, {});
+    for (const field of Object.keys(SALES_LEAD_CONTRACT_FIELDS)) {
+      assert.ok(field in out, `${id} is missing ${field}`);
+    }
+  }
+});
+
+check('a sourced value is never overwritten by the backfill', () => {
+  const out = mapper.mapToApiPayload('cogmap', {
+    entity_name: 'De Anza Force',
+    contactEmails: ['a@b.c'],
+    estimated_participants: 500,
+  });
+  assert.strictEqual(out.entity_name, 'De Anza Force');
+  assert.deepStrictEqual(out.contactEmails, ['a@b.c']);
+  assert.strictEqual(out.estimated_participants, 500);
+});
+
+check('a deliberately empty sourced value survives the backfill', () => {
+  const out = mapper.mapToApiPayload('cogmap', { entity_name: '', tags: [] });
+  assert.strictEqual(out.entity_name, '');
+  assert.deepStrictEqual(out.tags, []);
+});
+
+check('backfilled arrays and objects are not shared between records', () => {
+  // A shared reference would let one record's mutation leak into the next.
+  const a = mapper.mapToApiPayload('cogmap', {});
+  const b = mapper.mapToApiPayload('cogmap', {});
+  a.tags.push('leaked');
+  a.pricingByCompany.X = {};
+  assert.deepStrictEqual(b.tags, [], 'array default is shared across records');
+  assert.deepStrictEqual(b.pricingByCompany, {}, 'object default is shared across records');
+});
+
+check('a backfilled record still validates for every tenant', () => {
+  for (const id of SALES_LEAD_TENANTS) {
+    const r = mapper.validateForTenant(id, mapper.mapToApiPayload(id, {}));
+    assert.strictEqual(r.valid, true, `${id}: ${JSON.stringify(r.errors)}`);
+  }
+});
+
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {
   console.error('FAILURES ABOVE');

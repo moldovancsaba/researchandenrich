@@ -879,3 +879,57 @@ showed the correct restored values. The restore was fine; GET-by-id was wrong. T
 independently reproduces the assumption behind `runtime/verifier/list-based.js`. Treat
 GET-by-id as advisory: **verify writes by list, and never conclude a write failed — or
 worse, retry it — on GET-by-id evidence alone.**
+
+## 16. The shared field contract is now enforced in code -- 2026-08-12
+
+Approved by the operator after a dry run; see `docs/AGENT_COLLABORATION_CONTRACT.md`
+for the roles this decision was made under.
+
+`prompts/shared/sales-lead-fields.md` requires every sales-lead-api record to
+carry every field, empty rather than omitted. That rule was enforced by prompt
+discipline alone. `scripts/verify-prompt-parity.js` proves the three prompts
+*say* the same thing; nothing proved the agent *did* it, and
+`_mapSalesLeadApi` passed the payload through as-is. The operator's live audit
+measured the consequence: 22 of 68 fields diverging by more than 50% across the
+three tenants (`sportCode` 90/84/0%, `contacts` 31/100/100%, `contactEmails`
+4/30/95%).
+
+`_mapSalesLeadApi` now backfills the contract. Every tenant emits an identical
+41-key payload regardless of what the agent sourced. Only **absent** keys are
+filled -- a sourced value, including a deliberately empty one, is never
+overwritten. Array and object defaults are constructed per record, so one
+record's mutation cannot leak into the next.
+
+**Two contract fields are deliberately NOT backfilled**, recorded in
+`SALES_LEAD_SERVER_COMPUTED_FIELDS`:
+
+- `ticketSizeEstimate` -- derived server-side from the tenant's `dealSize` bands
+  (§6: `method: "tier_band"`).
+- `ice` -- `ice.ease` is validated for format and then discarded and recomputed
+  from `computeEase(body)`; a record without real contacts was rejected 422 by
+  the quality gate regardless of the submitted value (§6).
+
+The operator's dry run verified empty `recommended_tier`/`revenue_model` are
+accepted (HTTP 200, stored `""`, on `cogmap`/De Anza Force and `dvsc`/K&H Bank,
+both restored). It explicitly did **not** exercise `ice.ease`. Sending an empty
+value for a field the server derives risks clobbering a correct one, so these
+two stay absent-if-absent: absent is the current working behaviour, empty is the
+unverified one. They move into the backfill when a dry run covers them.
+
+**Drift between the two sides now fails the gate.** `verify-schema-mapper.js`
+parses the operator-owned contract file and asserts that every field in it is
+either backfilled or recorded as server-computed, and that the mapper backfills
+nothing the contract does not list. Verified by simulating a field added to the
+contract: the gate fails and names the fix. The parse itself is asserted
+non-empty, so an unparseable contract cannot make the check pass vacuously.
+
+**Method note for future verification, from the operator (§14 of their
+reporting, reproduced here because it changes how this repo verifies anything):**
+`salesleadgenerator` has no delete endpoint, so a test POST is permanent -- use a
+reversible PUT on a DRAFT record, capture the prior value, restore, verify. And
+after a *successful* restore, `GET /api/leads/<id>` returned `null` for two
+fields the list endpoint showed correctly restored. The write was fine;
+GET-by-id lied. This independently reproduces the assumption behind
+`runtime/verifier/list-based.js`. Never conclude a write failed, or retry it, on
+GET-by-id evidence alone -- a retry loop driven by that endpoint would duplicate
+production records.

@@ -55,6 +55,65 @@ const TENANTS_PATH = path.join(__dirname, 'tenants.json');
  * cannot drift apart -- they were previously duplicated as inline literals in
  * both.
  */
+/**
+ * The shared sales-lead field contract, mirrored from
+ * `prompts/shared/sales-lead-fields.md`.
+ *
+ * The contract's rule is "emit every field on every record; empty if it cannot
+ * be sourced, never omitted". Until now that was enforced by prompt discipline
+ * alone: `scripts/verify-prompt-parity.js` proves the three prompts SAY the same
+ * thing, but nothing proved the agent DID it. A live audit measured the result
+ * -- sportCode at 90/84/0% and contactEmails at 4/30/95% across the three
+ * tenants -- because `_mapSalesLeadApi` passed the payload through as-is.
+ *
+ * Backfilling here makes omission structurally impossible rather than a
+ * compliance question, so cross-tenant percentages measure sourcing success
+ * instead of prompt adherence.
+ *
+ * `scripts/verify-schema-mapper.js` asserts this list stays in step with the
+ * prompt contract, so a field added on the operator's side fails the gate here
+ * rather than silently going unbackfilled.
+ */
+const SALES_LEAD_CONTRACT_FIELDS = {
+  // Identity and location
+  entity_name: '', canonicalLeadName: '', url: '', region: '', country: '',
+  cityName: '', address: '',
+  // Classification
+  industry: '', sport_or_sector: '', sportCode: '', level_league: '', size: '',
+  classificationTags: [], tags: [], orgTypeCode: '', businessUnitCode: '',
+  competitionLevelCode: '', demographicCodes: [], genderCode: '',
+  parentOrgName: '', relationshipToParent: '',
+  // Contact
+  contacts: [], contactEmails: [], general_contact: '', contact_phone: '',
+  decision_maker_name: '', decision_maker_title: '', decision_maker_contact: '',
+  // Assessment
+  value_proposition: '', pro_for_organization: '', con_for_organization: '',
+  product_fit_notes: '', notes: '', priority: '',
+  // Forecast
+  recommended_tier: '', revenue_model: '', estimated_participants: 0,
+  estimated_annual_revenue_usd: 0, pricingByCompany: {},
+  // Provenance
+  source: '', techSignals: [],
+};
+
+/**
+ * Contract fields deliberately NOT backfilled, because salesleadgenerator
+ * computes them server-side and sending an empty value risks clobbering or
+ * rejecting a correct one.
+ *
+ *   ticketSizeEstimate -- derived from the tenant's dealSize bands in Sales
+ *     Settings (RUNTIME_ARCHITECTURE_NOTES §6: `method: "tier_band"`).
+ *   ice -- `ice.ease` is validated for format and then DISCARDED, recomputed
+ *     from `computeEase(body)`. A record with no real contacts was rejected 422
+ *     by the quality gate regardless of the submitted value (§6).
+ *
+ * The operator's 2026-08-12 dry run verified empty `recommended_tier` and
+ * `revenue_model` are accepted (HTTP 200, stored ""); it explicitly did NOT
+ * exercise ice.ease. These two stay omitted-if-absent until a dry run covers
+ * them. Absent is the current, working behaviour; empty is the unverified one.
+ */
+const SALES_LEAD_SERVER_COMPUTED_FIELDS = ['ticketSizeEstimate', 'ice'];
+
 const SALES_LEAD_TIERS = ['essential', 'performance', 'elite', 'multiple'];
 const SALES_LEAD_REVENUE_MODELS = ['per_participant', 'revenue_share', 'hybrid'];
 const SALES_LEAD_PRICING_MODELS = [
@@ -263,6 +322,18 @@ class SchemaMapper {
    * populate. The shape is now identical for all of them.
    */
   _mapSalesLeadApi(tenant, payload) {
+    // Backfill the shared contract first, so every tenant emits an identical
+    // key set regardless of what the agent managed to source. Only ABSENT keys
+    // are filled -- a sourced value, including a deliberate empty one, is never
+    // overwritten.
+    for (const [field, emptyValue] of Object.entries(SALES_LEAD_CONTRACT_FIELDS)) {
+      if (payload[field] === undefined || payload[field] === null) {
+        payload[field] = Array.isArray(emptyValue)
+          ? []
+          : (emptyValue !== null && typeof emptyValue === 'object' ? {} : emptyValue);
+      }
+    }
+
     // All sales-lead-api tenants share the same brand field names:
     // pro_for_organization / con_for_organization
     // Nothing to remap here; keep payload as-is.
@@ -956,3 +1027,5 @@ module.exports = SchemaMapper;
 module.exports.InvalidIdentifierError = InvalidIdentifierError;
 module.exports.RECORD_ID_PATTERN = RECORD_ID_PATTERN;
 module.exports.extractSubjectDocuments = extractSubjectDocuments;
+module.exports.SALES_LEAD_CONTRACT_FIELDS = SALES_LEAD_CONTRACT_FIELDS;
+module.exports.SALES_LEAD_SERVER_COMPUTED_FIELDS = SALES_LEAD_SERVER_COMPUTED_FIELDS;
