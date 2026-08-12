@@ -667,6 +667,119 @@ check('validateForTenant never throws across a fuzz of payload shapes', () => {
   }
 });
 
+
+// ---------------------------------------------------------------------------
+// One payload shape across every salesleadgenerator client (owner decision
+// 2026-08-12)
+//
+// forecastModel used to select between two DISJOINT field sets: cogmap/dvsc
+// emitted recommended_tier / revenue_model / estimated_participants /
+// estimated_annual_revenue_usd / product_fit_notes, seyu emitted
+// pricingByCompany instead. So seyu wrote a field the others never wrote and
+// omitted five they always wrote -- a format divergence between clients of one
+// API. Every field is now present on every tenant; empty where a tenant's
+// business logic does not populate it.
+// ---------------------------------------------------------------------------
+
+const SALES_LEAD_TENANTS = Object.keys(mapper.tenants)
+  .filter((id) => mapper.tenants[id].schemaFamily === 'sales-lead-api');
+
+const UNIFIED_FORECAST_FIELDS = [
+  'recommended_tier',
+  'revenue_model',
+  'estimated_participants',
+  'estimated_annual_revenue_usd',
+  'product_fit_notes',
+  'pricingByCompany',
+];
+
+check('every sales-lead-api tenant emits an identical field set', () => {
+  const shapes = SALES_LEAD_TENANTS.map((id) =>
+    Object.keys(mapper.mapToApiPayload(id, { name: 'X' })).sort().join(','));
+  const distinct = [...new Set(shapes)];
+  assert.strictEqual(distinct.length, 1,
+    `tenants diverge: ${JSON.stringify(Object.fromEntries(
+      SALES_LEAD_TENANTS.map((id, i) => [id, shapes[i]])))}`);
+});
+
+for (const field of UNIFIED_FORECAST_FIELDS) {
+  check(`every sales-lead-api tenant emits ${field}`, () => {
+    for (const id of SALES_LEAD_TENANTS) {
+      const out = mapper.mapToApiPayload(id, { name: 'X' });
+      assert.ok(field in out, `${id} is missing ${field}`);
+    }
+  });
+}
+
+check('unpopulated forecast fields are empty, not absent and not invented', () => {
+  for (const id of SALES_LEAD_TENANTS) {
+    const out = mapper.mapToApiPayload(id, { name: 'X' });
+    // Previously an absent recommended_tier on a deal-size-band tenant could be
+    // coerced to 'essential'. Empty must stay empty.
+    assert.strictEqual(out.recommended_tier, '', `${id} invented a tier`);
+    assert.strictEqual(out.revenue_model, '', `${id} invented a revenue model`);
+    assert.strictEqual(out.estimated_participants, 0);
+    assert.strictEqual(out.estimated_annual_revenue_usd, 0);
+    assert.strictEqual(out.product_fit_notes, '');
+    assert.deepStrictEqual(out.pricingByCompany, {});
+  }
+});
+
+check('seyu now normalises the deal-size-band fields it previously ignored', () => {
+  const out = mapper.mapToApiPayload('seyu', {
+    name: 'X', recommended_tier: '  ELITE ', revenue_model: 'Revenue Share',
+    estimated_participants: '250', estimated_annual_revenue_usd: -5,
+  });
+  assert.strictEqual(out.recommended_tier, 'elite');
+  assert.strictEqual(out.revenue_model, 'revenue_share');
+  assert.strictEqual(out.estimated_participants, 250);
+  assert.strictEqual(out.estimated_annual_revenue_usd, 0);
+});
+
+check('cogmap and dvsc now normalise pricingByCompany, which they previously dropped', () => {
+  for (const id of ['cogmap', 'dvsc']) {
+    const out = mapper.mapToApiPayload(id, {
+      name: 'X',
+      pricingByCompany: { AcmeCo: { currency: ' eur ', pricing_model: 'Monthly SaaS', monthly_eur: '-3' } },
+    });
+    assert.strictEqual(out.pricingByCompany.AcmeCo.currency, 'EUR', id);
+    assert.strictEqual(out.pricingByCompany.AcmeCo.pricing_model, 'monthly_saas', id);
+    assert.strictEqual(out.pricingByCompany.AcmeCo.monthly_eur, 0, id);
+  }
+});
+
+check('an out-of-vocabulary value still falls back to the safe default', () => {
+  const out = mapper.mapToApiPayload('cogmap', { recommended_tier: 'platinum' });
+  assert.strictEqual(out.recommended_tier, 'essential');
+});
+
+check('validation accepts empty forecast fields for every tenant', () => {
+  for (const id of SALES_LEAD_TENANTS) {
+    const result = mapper.validateForTenant(id, mapper.mapToApiPayload(id, { name: 'X' }));
+    assert.strictEqual(result.valid, true, `${id}: ${JSON.stringify(result.errors)}`);
+  }
+});
+
+check('validation still rejects an out-of-vocabulary forecast value for every tenant', () => {
+  for (const id of SALES_LEAD_TENANTS) {
+    const r = mapper.validateForTenant(id, { recommended_tier: 'platinum' });
+    assert.ok(r.errors.some((e) => e.startsWith('recommended_tier must be')), id);
+    const r2 = mapper.validateForTenant(id, { pricingByCompany: [] });
+    assert.ok(r2.errors.some((e) => e.startsWith('pricingByCompany must be')), id);
+  }
+});
+
+check('forecastModel no longer changes the payload shape', () => {
+  // It is retained only as a hint about which fields a tenant's prompt fills.
+  const withModel = new (require('../schema-mapper'))();
+  withModel.tenants.shapetest = {
+    ...withModel.tenants.cogmap, forecastModel: 'pricing-by-company',
+  };
+  const a = Object.keys(withModel.mapToApiPayload('cogmap', { name: 'X' })).sort();
+  const b = Object.keys(withModel.mapToApiPayload('shapetest', { name: 'X' })).sort();
+  assert.deepStrictEqual(a, b, 'forecastModel still switches the shape');
+});
+
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {
   console.error('FAILURES ABOVE');

@@ -3,7 +3,7 @@
 ## Start-up
 - Source the workspace tenant env before any API or shell actions:
   `source "${RAE_ENV_DIR:-$RAE_ROOT}/.env.seyu"` (see `prompts/RUNTIME_PATHS.md` if `$RAE_ROOT` is not set)
-- Use `process.env.SEYU_API_KEY` for `x-api-key`.
+- Use `process.env.SLG_API_KEY` for `x-api-key`. There is no separate seyu key: seyu is a client of the same salesleadgenerator API as cogmap and dvsc and shares their credential.
 - Treat the values in that file as trusted runtime config.
 
 ## Search/router usage

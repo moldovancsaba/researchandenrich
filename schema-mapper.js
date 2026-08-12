@@ -50,6 +50,20 @@ const TENANTS_PATH = path.join(__dirname, 'tenants.json');
  * malformed regardless, and accepting `%2F%2E%2E%2F` as a "valid, safely
  * encoded" identifier would be a correct-looking mistake.
  */
+/**
+ * sales-lead-api vocabularies. Declared once so the mapper and the validator
+ * cannot drift apart -- they were previously duplicated as inline literals in
+ * both.
+ */
+const SALES_LEAD_TIERS = ['essential', 'performance', 'elite', 'multiple'];
+const SALES_LEAD_REVENUE_MODELS = ['per_participant', 'revenue_share', 'hybrid'];
+const SALES_LEAD_PRICING_MODELS = [
+  'upfront_monthly', 'revenue_share', 'monthly_saas', 'annual_fee', 'custom',
+];
+const SALES_LEAD_PRICING_NUMERIC_KEYS = [
+  'upfront_eur', 'monthly_eur', 'annual_fee_eur', 'discount_percent', 'revenue_share_percent',
+];
+
 const RECORD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 class InvalidIdentifierError extends Error {
@@ -230,6 +244,24 @@ class SchemaMapper {
    * not a code change). Forecast-field normalization varies per tenant via
    * `tenant.forecastModel`, not per hardcoded tenant ID.
    */
+  /**
+   * The salesleadgenerator-shaped lead schema, shared by every tenant whose
+   * tenants.json entry declares `schemaFamily: 'sales-lead-api'`.
+   *
+   * EVERY sales-lead-api tenant emits the SAME field set (owner decision
+   * 2026-08-12). Fields a tenant's business logic does not populate are present
+   * and empty, not absent. Previously the forecast fields were split by
+   * `forecastModel` into two mutually exclusive branches: cogmap/dvsc emitted
+   * recommended_tier / revenue_model / estimated_participants /
+   * estimated_annual_revenue_usd / product_fit_notes, and seyu emitted
+   * pricingByCompany instead. Those sets are disjoint, so seyu wrote a field
+   * the others never wrote and omitted five they always wrote -- a format
+   * divergence between clients of one API.
+   *
+   * `forecastModel` is retained but demoted: it no longer selects a payload
+   * SHAPE, only describes which fields that tenant's prompt is expected to
+   * populate. The shape is now identical for all of them.
+   */
   _mapSalesLeadApi(tenant, payload) {
     // All sales-lead-api tenants share the same brand field names:
     // pro_for_organization / con_for_organization
@@ -241,69 +273,74 @@ class SchemaMapper {
     // Standardize emails and phones
     this._standardizeContacts(payload);
 
-    // 'deal-size-band' tenants (cogmap, dvsc -- dvsc reuses cogmap's own
-    // model per issue #148 in salesleadgenerator) get recommended_tier/
-    // revenue_model/estimated_participants normalization.
-    if (tenant.forecastModel === 'deal-size-band') {
-      if (payload.recommended_tier && typeof payload.recommended_tier === 'string') {
+    // --- deal-size-band fields: normalised for EVERY tenant ---------------
+    // An out-of-vocabulary value is coerced to the safe default only when the
+    // caller supplied something; an absent field stays empty rather than being
+    // invented as 'essential'.
+    if (payload.recommended_tier !== undefined && payload.recommended_tier !== null
+        && payload.recommended_tier !== '') {
+      if (typeof payload.recommended_tier === 'string') {
         const normalized = payload.recommended_tier.trim().toLowerCase();
-        if (!['essential', 'performance', 'elite', 'multiple'].includes(normalized)) {
-          payload.recommended_tier = 'essential';
-        } else {
-          payload.recommended_tier = normalized;
-        }
+        payload.recommended_tier = SALES_LEAD_TIERS.includes(normalized)
+          ? normalized
+          : 'essential';
       }
-      if (payload.revenue_model && typeof payload.revenue_model === 'string') {
-        const normalized = payload.revenue_model.trim().toLowerCase().replace(/[^a-z_]/g, '_');
-        if (!['per_participant', 'revenue_share', 'hybrid'].includes(normalized)) {
-          payload.revenue_model = 'per_participant';
-        } else {
-          payload.revenue_model = normalized;
-        }
-      }
-      if (payload.estimated_participants !== undefined) {
-        payload.estimated_participants = Math.max(0, Number(payload.estimated_participants) || 0);
-      }
-      if (payload.estimated_annual_revenue_usd !== undefined) {
-        payload.estimated_annual_revenue_usd = Math.max(0, Number(payload.estimated_annual_revenue_usd) || 0);
-      }
-      if (payload.product_fit_notes && typeof payload.product_fit_notes === 'string') {
-        payload.product_fit_notes = payload.product_fit_notes.trim();
-      }
+    } else {
+      payload.recommended_tier = '';
     }
 
-    // 'pricing-by-company' tenants (seyu today) get pricingByCompany
-    // normalization instead of the deal-size-band fields above -- a tenant
-    // never has both models, per the mutually-exclusive branches here.
-    if (tenant.forecastModel === 'pricing-by-company') {
-      if (payload.pricingByCompany && typeof payload.pricingByCompany === 'object') {
-        const normalized = {};
-        for (const [company, data] of Object.entries(payload.pricingByCompany)) {
-          const item = (data && typeof data === 'object') ? { ...data } : {};
-          if ('currency' in item && typeof item.currency === 'string') {
-            item.currency = item.currency.trim().toUpperCase();
-          }
-          if ('pricing_model' in item && typeof item.pricing_model === 'string') {
-            const raw = item.pricing_model.trim().toLowerCase().replace(/[^a-z_]/g, '_');
-            if (!['upfront_monthly', 'revenue_share', 'monthly_saas', 'annual_fee', 'custom'].includes(raw)) {
-              item.pricing_model = 'custom';
-            } else {
-              item.pricing_model = raw;
-            }
-          }
-          const numericKeys = ['upfront_eur', 'monthly_eur', 'annual_fee_eur', 'discount_percent', 'revenue_share_percent'];
-          for (const key of numericKeys) {
-            if (item[key] !== undefined) {
-              item[key] = Math.max(0, Number(item[key]) || 0);
-            }
-          }
-          if ('notes' in item && typeof item.notes === 'string') {
-            item.notes = item.notes.trim();
-          }
-          normalized[company] = item;
-        }
-        payload.pricingByCompany = normalized;
+    if (payload.revenue_model !== undefined && payload.revenue_model !== null
+        && payload.revenue_model !== '') {
+      if (typeof payload.revenue_model === 'string') {
+        const normalized = payload.revenue_model.trim().toLowerCase().replace(/[^a-z_]/g, '_');
+        payload.revenue_model = SALES_LEAD_REVENUE_MODELS.includes(normalized)
+          ? normalized
+          : 'per_participant';
       }
+    } else {
+      payload.revenue_model = '';
+    }
+
+    payload.estimated_participants =
+      payload.estimated_participants === undefined || payload.estimated_participants === null
+        ? 0
+        : Math.max(0, Number(payload.estimated_participants) || 0);
+
+    payload.estimated_annual_revenue_usd =
+      payload.estimated_annual_revenue_usd === undefined
+      || payload.estimated_annual_revenue_usd === null
+        ? 0
+        : Math.max(0, Number(payload.estimated_annual_revenue_usd) || 0);
+
+    payload.product_fit_notes =
+      typeof payload.product_fit_notes === 'string' ? payload.product_fit_notes.trim() : '';
+
+    // --- pricing-by-company field: normalised for EVERY tenant ------------
+    if (payload.pricingByCompany && typeof payload.pricingByCompany === 'object'
+        && !Array.isArray(payload.pricingByCompany)) {
+      const normalized = {};
+      for (const [company, data] of Object.entries(payload.pricingByCompany)) {
+        const item = (data && typeof data === 'object') ? { ...data } : {};
+        if ('currency' in item && typeof item.currency === 'string') {
+          item.currency = item.currency.trim().toUpperCase();
+        }
+        if ('pricing_model' in item && typeof item.pricing_model === 'string') {
+          const raw = item.pricing_model.trim().toLowerCase().replace(/[^a-z_]/g, '_');
+          item.pricing_model = SALES_LEAD_PRICING_MODELS.includes(raw) ? raw : 'custom';
+        }
+        for (const key of SALES_LEAD_PRICING_NUMERIC_KEYS) {
+          if (item[key] !== undefined) {
+            item[key] = Math.max(0, Number(item[key]) || 0);
+          }
+        }
+        if ('notes' in item && typeof item.notes === 'string') {
+          item.notes = item.notes.trim();
+        }
+        normalized[company] = item;
+      }
+      payload.pricingByCompany = normalized;
+    } else {
+      payload.pricingByCompany = {};
     }
 
     return payload;
@@ -563,21 +600,34 @@ class SchemaMapper {
     }
 
     // Validate deal-size-band forecast fields (see _mapSalesLeadApi above).
-    if (tenant.forecastModel === 'deal-size-band') {
-      const validTiers = ['essential', 'performance', 'elite', 'multiple'];
-      const validRevenueModels = ['per_participant', 'revenue_share', 'hybrid'];
-      if (payload.recommended_tier && !validTiers.includes(payload.recommended_tier)) {
-        errors.push(`recommended_tier must be one of: ${validTiers.join(', ')}`);
-      }
-      if (payload.revenue_model && !validRevenueModels.includes(payload.revenue_model)) {
-        errors.push(`revenue_model must be one of: ${validRevenueModels.join(', ')}`);
-      }
-      if (payload.estimated_participants !== undefined && (typeof payload.estimated_participants !== 'number' || payload.estimated_participants < 0)) {
-        errors.push('estimated_participants must be a non-negative number');
-      }
-      if (payload.estimated_annual_revenue_usd !== undefined && (typeof payload.estimated_annual_revenue_usd !== 'number' || payload.estimated_annual_revenue_usd < 0)) {
-        errors.push('estimated_annual_revenue_usd must be a non-negative number');
-      }
+    // Forecast fields are validated for EVERY sales-lead-api tenant, because
+    // every tenant now emits all of them (owner decision 2026-08-12). Empty is
+    // a legitimate value -- a tenant whose business logic does not populate a
+    // field sends it empty rather than omitting it -- so '' and 0 must pass.
+    if (payload.recommended_tier !== undefined && payload.recommended_tier !== ''
+        && !SALES_LEAD_TIERS.includes(payload.recommended_tier)) {
+      errors.push(`recommended_tier must be empty or one of: ${SALES_LEAD_TIERS.join(', ')}`);
+    }
+    if (payload.revenue_model !== undefined && payload.revenue_model !== ''
+        && !SALES_LEAD_REVENUE_MODELS.includes(payload.revenue_model)) {
+      errors.push(
+        `revenue_model must be empty or one of: ${SALES_LEAD_REVENUE_MODELS.join(', ')}`);
+    }
+    if (payload.estimated_participants !== undefined
+        && (typeof payload.estimated_participants !== 'number'
+            || payload.estimated_participants < 0)) {
+      errors.push('estimated_participants must be a non-negative number');
+    }
+    if (payload.estimated_annual_revenue_usd !== undefined
+        && (typeof payload.estimated_annual_revenue_usd !== 'number'
+            || payload.estimated_annual_revenue_usd < 0)) {
+      errors.push('estimated_annual_revenue_usd must be a non-negative number');
+    }
+    if (payload.pricingByCompany !== undefined
+        && (payload.pricingByCompany === null
+            || typeof payload.pricingByCompany !== 'object'
+            || Array.isArray(payload.pricingByCompany))) {
+      errors.push('pricingByCompany must be an object');
     }
   }
 

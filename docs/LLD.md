@@ -127,7 +127,7 @@ Static defaults, not generated. `healthcheck.yaml`: per-family health endpoint t
 Eight OpenClaw-format Markdown files (not JSON/YAML): `prompts/discovery/{cogmap,seyu,dvsc,classscout}.md` and `prompts/enrichment/{cogmap,seyu,dvsc,classscout}.md`. `classscout.md`'s pair are structurally the same skeleton but a different tenant block/schema entirely -- see the "The Real Schema" and "Image Sourcing" sections of `prompts/discovery/classscout.md` for what's genuinely new versus the sales-lead-api tenants.
 
 **Common to all 6:**
-- Start-up: `source "$HOME/.openclaw/workspace/.env.<tenant>"`, reads `SLG_API_KEY` (cogmap/dvsc) or `SEYU_API_KEY` (seyu) for `x-api-key`.
+- Start-up: `source "$HOME/.openclaw/workspace/.env.<tenant>"`, reads `SLG_API_KEY` for `x-api-key` — all three sales-lead-api tenants share one credential; there is no separate seyu key (see RUNTIME_ARCHITECTURE_NOTES).
 - Search/router usage: invokes the router via the absolute path `"$HOME/.openclaw/workspace/Agents/contentcreator/search-router/seyu-search-router/AgentFinder"` (stdio MCP); falls back to raw `web_fetch` if unavailable; explicitly forbids ad-hoc `web_search` in cron context.
 - "Fixed-Tenant Contract": one tenant per run, no round-robin state, `brand=<tenantId>` routing (never `board=`), list-based verification only, stop-don't-retry on rate-limit.
 - Enrichment files additionally specify `PUT /api/leads/<id>` with only-changed-fields, and explicitly reject a nonexistent `PATCH /api/leads?action=ENRICH` path.

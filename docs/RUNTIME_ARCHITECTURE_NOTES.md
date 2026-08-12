@@ -790,3 +790,66 @@ legacy `pro_for_<tenant>`/`con_for_<tenant>` names in favour of
 if classscout (a different schemaFamily) inherits the block, or if legacy brand fields
 reappear. It is wired into `npm test`. Verified to fail on an introduced drift, not just to
 pass on the happy path.
+
+## 17. One payload shape for every salesleadgenerator client -- 2026-08-12
+
+Owner decision: **every sales-lead-api tenant emits the same field set. Fields a
+tenant's business logic does not populate are present and empty, not absent.**
+
+Before this, `forecastModel` selected between two **disjoint** field sets:
+
+| | cogmap / dvsc (`deal-size-band`) | seyu (`pricing-by-company`) |
+|---|---|---|
+| `recommended_tier` | emitted | absent |
+| `revenue_model` | emitted | absent |
+| `estimated_participants` | emitted | absent |
+| `estimated_annual_revenue_usd` | emitted | absent |
+| `product_fit_notes` | emitted | absent |
+| `pricingByCompany` | absent | emitted |
+
+So seyu wrote one field the other two never wrote and omitted five they always
+wrote -- a format divergence between three clients of a single API, expressed in
+code as two mutually exclusive branches whose comment stated a tenant "never has
+both models".
+
+`_mapSalesLeadApi` now normalises all six fields for every tenant.
+`_validateLead` validates all six for every tenant and accepts empty as
+legitimate. `forecastModel` is retained but **demoted**: it no longer selects a
+payload shape, only describes which fields a tenant's prompt is expected to
+populate. A regression check constructs a tenant with a different
+`forecastModel` and asserts the emitted key set is unchanged.
+
+One behavioural subtlety worth recording: an absent `recommended_tier` used to
+be coerced to `'essential'` by the old truthiness guard on a deal-size-band
+tenant. That is invention -- it asserts a sales tier nobody researched. Empty
+now stays empty; the fallback applies only when the caller supplied a value
+outside the vocabulary.
+
+The four vocabularies (tiers, revenue models, pricing models, numeric pricing
+keys) were duplicated as inline literals in both the mapper and the validator.
+They are now declared once, so the two cannot drift.
+
+**`SEYU_API_KEY` does not exist as a distinct secret.** Verified by hashing:
+`SLG_API_KEY` in `.env.cogmap`, `.env.seyu` and `.env.dvsc`, and `SEYU_API_KEY`
+in `.env.seyu`, are all the same 36-character value (`sha256:7aa30da5…`). Seyu
+is a client of the same salesleadgenerator API as cogmap and dvsc and shares
+their credential.
+
+Both seyu prompt files instructed the agent to read `process.env.SEYU_API_KEY`,
+and `docs/LLD.md` documented the same false distinction. That made seyu's runs
+depend on a variable that exists only because someone duplicated the key into
+one env file -- any environment provisioned per `README.md` gets `SLG_API_KEY`
+and seyu would fail with a 401. Both prompts and the LLD line now say
+`SLG_API_KEY`.
+
+`docs/AGENT_RUNTIME_FINDINGS.md` had already recorded this correction; the
+prompts and LLD were simply never updated to match. The OpenClaw runbook's
+"seyu is not configured -- do not substitute another tenant's key" blocker rests
+on the same misreading: there is nothing to substitute, because there is only
+one key.
+
+**Not verified:** whether salesleadgenerator's API accepts `recommended_tier: ''`
+and `revenue_model: ''` on tenants that previously omitted them. Local validation
+accepts empty by design, but the remote contract was not exercised -- doing so
+means a real write to a live collection. Confirm with a single dry-run write per
+tenant before relying on this in production.
