@@ -2,10 +2,9 @@
 
 **First written:** 2026-08-02, compiled directly from the real source (export lists, import graphs, route handlers) — every claim below was verified against a real file, not inferred. This sits one level below `docs/RUNTIME_ARCHITECTURE_NOTES.md` (system-level findings and drift history) — this doc is the module-by-module inventory: every config file's real schema, every function's real exports, every route's real behavior.
 
-This repo has two genuinely separate halves, easy to conflate but load-bearing to keep distinct:
+This repo is, in its entirety, **the agent pipeline** (§1–§7): static config (`tenants.json`, `apps.yaml`, `workers/`), the OpenClaw-format prompt files, `schema-mapper.js`, the `runtime/` helper library, and the `search-router/` MCP server. This is what an OpenClaw cron job actually reads and executes to discover/enrich leads/programs and write them into the separate `salesleadgenerator`/`classscout` deployments.
 
-1. **The agent pipeline** (§1–§7) — static config (`tenants.json`, `apps.yaml`, `workers/`), the OpenClaw-format prompt files, `schema-mapper.js`, the `runtime/` helper library, and the `search-router/` MCP server. This is what an OpenClaw cron job actually reads and executes to discover/enrich leads and write them into the separate `salesleadgenerator` deployment.
-2. **The `/admin` Next.js dashboard** (§8) — a small app for browsing/editing the same tenant config through a UI, backed by its own MongoDB collections that are **not** the same source of truth as the static files in half 1 (§8.3).
+A second half used to exist here — a `/admin` Next.js dashboard backed by its own MongoDB collections, editing a second, UI-facing copy of the same tenant config. It was retired 2026-08-12 (§8) because it never actually stayed in sync with the static files that were always the pipeline's real source of truth. There is no second half anymore; the static config below is the only config.
 
 Nothing in this repo actually `require()`s `schema-mapper.js` or the `runtime/*` modules today (confirmed by a repo-wide grep) — they're the documented, intended contract an OpenClaw cron-embedded prompt is expected to follow, plus a regression check (`scripts/verify-schema-mapper.js`) that exercises them directly. If a future runtime orchestrator is built that actually calls these programmatically, this is where it would plug in.
 
@@ -160,52 +159,40 @@ Self-contained npm package (own `package.json`, `package-lock.json`, `test/` —
 
 ---
 
-## 7. `scripts/*.js`
+## 7. `scripts/*`
 
-Exactly two scripts (no test framework configured — `package.json` has no `test` script).
-
-### `scripts/sync-dvsc-to-admin.js`
-
-CLI, `ADMIN_API_KEY=... node scripts/sync-dvsc-to-admin.js --api-base <url>`. Deliberately no hardcoded API-base default (this repo doesn't document its own deployed admin URL anywhere). Closes the "two unsynced config sources" gap (§8.3) specifically for `dvsc` by POSTing into the Mongo-backed `/api/admin/{apps,tenants}` API. Idempotent (`ensureApp()`/`ensureTenant()` GET-then-skip). Its own header discloses it has **not been run against a live deployment** — no credentials were available in the authoring sandbox.
+No test framework configured (`package.json` has no `test` script) — every script here is a plain dependency-light Node/bash script with its own explicit pass/fail output.
 
 ### `scripts/verify-schema-mapper.js`
 
-CLI, `node scripts/verify-schema-mapper.js`. Plain dependency-free Node script (Node's built-in `assert`), not a test framework. Regression-guards `schema-mapper.js`'s dynamic dispatch — specifically the bug class that broke DVSC's POST path (a missing `dvsc` case in a hardcoded switch, before the 2026-08-02 fix). Exercises `getApiEndpoint`/`mapToApiPayload`/`validateForTenant` against every real `sales-lead-api` tenant, plus a synthetic `newbrand` tenant **not present in `tenants.json`** (proving the "zero code change for a new same-family tenant" claim), plus a `broken` tenant with no `schemaFamily` (proving it throws rather than silently defaulting). Exits non-zero on failure.
+CLI, `node scripts/verify-schema-mapper.js`. Plain dependency-free Node script (Node's built-in `assert`), not a test framework. Regression-guards `schema-mapper.js`'s dynamic dispatch — specifically the bug class that broke DVSC's POST path (a missing `dvsc` case in a hardcoded switch, before the 2026-08-02 fix), plus the classscout Provider/MeetupGroup mapping and validation. Exercises `getApiEndpoint`/`mapToApiPayload`/`validateForTenant` against every real tenant, plus a synthetic `newbrand` tenant **not present in `tenants.json`** (proving the "zero code change for a new same-family tenant" claim), plus a `broken` tenant with no `schemaFamily` (proving it throws rather than silently defaulting). 47 checks, exits non-zero on failure.
+
+### `scripts/check-tenant-status-diff.js`
+
+CLI, `node scripts/check-tenant-status-diff.js <base-ref> <head-ref> [--verbose]`. Enforces that a single commit changes `status`/`enabled` for at most one tenant in `tenants.json` (issue #6), run on every push via `.github/workflows/tenant-status-guard.yml`. See `docs/RUNTIME_ARCHITECTURE_NOTES.md` §9 for the incident this exists to catch.
+
+### `scripts/test-classscout-live.js`
+
+CLI, `--mode=health|dry-run|live [--entity=provider|meetupGroup] [--confirm]`. Live integration test against the real classscout deployment — the only script here that makes real authenticated writes (self-cleaning: creates a test record, verifies, deletes it).
+
+### `scripts/assert-credentials-rotated.js` / `scripts/purge-history.sh` (issues #9/#10)
+
+`assert-credentials-rotated.js` is a precondition gate: reads `OLD_COGMAP_MONGODB_URI`/`OLD_SEYU_MONGODB_URI`/`OLD_SLG_API_KEY` from env vars (never hardcoded), attempts to authenticate with each, exits non-zero if any still works or any is missing. `purge-history.sh` chains that gate → a mandatory mirror backup → a fresh clone → `git filter-repo --invert-paths` over the six secret-bearing paths → path- and value-based verification → an explicit `--confirm-force-push` gate before touching the remote. Written and smoke-tested; not run for real against production history — see `docs/RUNTIME_ARCHITECTURE_NOTES.md` §11 for why and what's left.
 
 ---
 
-## 8. Next.js `/admin` app
+## 8. The `/admin` Next.js app — retired 2026-08-12
 
-### 8.1 Routes (`app/api/admin/`)
+This repo used to ship a Next.js `/admin` UI (`app/admin/*`) and `/api/admin/*` API, backed by its own MongoDB collections (`contentcreator_apps`/`contentcreator_tenants`) — a second, database-backed copy of the same tenant/app config the static files (§1) already hold. It has been deleted entirely, not just deprecated: `app/admin/`, `app/api/admin/`, `lib/api-auth.ts`, `lib/mongodb.ts`, and `scripts/sync-dvsc-to-admin.js` are all gone from this repo.
 
-All four import `requireApiKey` from `lib/api-auth.ts` and `clientPromise` from `lib/mongodb.ts`; all set `export const dynamic = 'force-dynamic'`.
+**Why it was removed rather than kept and fixed**, in the order these problems actually surfaced:
+- It was **unauthenticated in production** for most of its life (`requireApiKey()` was a permanently-disabled no-op — issue #3, eventually fixed, but only after being live and open for weeks).
+- It **never actually stayed in sync** with the static files it duplicated — `dvsc` and `classscout` were missing from it entirely (issue #29), and a `classscout-api` tenant existed in its Mongo collections with zero trace in any static file anywhere in this repo (confirmed live, see the retired §8.4 "two unsynced config sources" writeup, preserved below for history).
+- Every fix to the dashboard (auth, sync scripts, session-cookie login) was more surface area to secure and maintain for a config set small enough to hand-edit directly in the files that were always the actual source of truth for the pipeline itself (`config/cron-generator.js` and `schema-mapper.js` never read the Mongo collections — only `fs.readFileSync` on the static files, always).
 
-- `app/api/admin/apps/route.ts` — `GET` (list from `contentcreator_apps`), `POST` (create; 409 if `appId` exists).
-- `app/api/admin/apps/[appId]/route.ts` — `GET` (404 if missing), `PUT` (shallow-merge replace via `replaceOne`), `DELETE` (409 if `tenantIds.length > 0`).
-- `app/api/admin/tenants/route.ts` — `GET` (list from `contentcreator_tenants`), `POST` (create; 409 if exists).
-- `app/api/admin/tenants/[tenantId]/route.ts` — `GET`, `PUT` (shallow-merge replace), `DELETE`.
-- `app/api/admin/queue/route.ts` — `GET` (synthesizes up to 2 "jobs" per tenant — discovery+enrichment — from the Mongo tenants collection; special-cases `appId === 'classscout-api'`, the concrete evidence a tenant was onboarded into Mongo with no corresponding static-file entry anywhere in this repo, see §8.3). `PUT` (bulk sortOrder/schedule update from drag-and-drop). `PATCH` (toggle single job's `enabled`).
-- `app/api/leads/route.ts` — **not a real admin route** — a lightweight local stub/mock (`GET` returns `{leads: []}`, `POST`/`PUT` echo the body back). The real leads API this pipeline actually targets lives in the separate `salesleadgenerator` deployment (`tenants.json`'s `apiBase`), not here.
-- `app/api/health/route.ts` — trivial `{status: "ok", framework: "nextjs", timestamp}`.
+**What replaces it**: nothing. `tenants.json`, `apps.yaml`, and `workers/<tenant>/*.yaml` are the only config surface now, edited directly in this repository. There is no dashboard, no database-backed config, and no sync step to keep two sources aligned, because there is only one source. See `rae_handover.md` for the complete current operational reference.
 
-### 8.2 Auth (issue #3, fixed)
-
-`lib/api-auth.ts`'s `requireApiKey()` now actually validates the request's `x-api-key` header against `process.env.ADMIN_API_KEY`, returning a `401 NextResponse` on mismatch or a missing header — mirrors salesleadgenerator's own `requireApiKey` (its issue #105) including its fail-open-outside-production / fail-closed-in-production behavior for an unset key. Every `/api/admin/*` route already called this function and treated a non-null return as "reject"; the fix required zero caller-side changes in the five route files.
-
-Two credential callers, corrected in the same change:
-- `scripts/sync-dvsc-to-admin.js` already sent `x-api-key: $ADMIN_API_KEY` correctly — no change needed there.
-- The admin UI (`app/admin/page.tsx`, `app/admin/queue/page.tsx`) previously sent `x-api-key: NEXT_PUBLIC_SLG_API_KEY` on some requests (a stray reuse of the unrelated sales-lead-generator key, itself already publicly inlined into the browser bundle) and **no header at all** on the queue page's three fetches. Both are now `NEXT_PUBLIC_ADMIN_API_KEY` — its own admin-scoped var, consistently applied. This is still a value visible in the client bundle, not a real secret; the deeper fix (a session/login model for `/admin` so the browser never needs to hold the key at all) is its own, larger M1-milestone piece of work, not part of this change.
-
-### 8.3 Pages
-
-- `app/admin/page.tsx` — 3 tabs (Apps/Tenants/Queue), `loadApps()`/`loadTenants()` fetch `/api/admin/apps?brand=cogmap`/`/api/admin/tenants?brand=cogmap` (the `brand` param is dead — `getBrand()` computes it but the handlers never filter by it), inline `AppForm`/`TenantForm`, inline read-only `QueueView`.
-- `app/admin/queue/page.tsx` — the full queue page (fetches tenants + queue in parallel, per-job `toggleJob()` PATCH).
-- `app/page.tsx` — public landing page linking into `/admin` and `/admin/queue`.
-- `app/layout.tsx` — root layout; top nav literally reads "Sales Lead Generator" / "Admin" — branding bleed from the target app this dashboard manages, not this app's own name.
-
-### 8.4 The "two unsynced config sources" problem, confirmed in code
-
-`config/cron-generator.js` and `schema-mapper.js` both read `tenants.json`/`apps.yaml`/`workers/*` off disk via `fs.readFileSync`. The `/admin` dashboard and its API routes read/write MongoDB collections `contentcreator_apps`/`contentcreator_tenants` exclusively. **Nothing in this repo syncs the two.** `scripts/sync-dvsc-to-admin.js` is the only bridge, and it's unverified (§7). The `classscout-api` special-case in `queue/route.ts` (§8.1) is live evidence the two sources have already drifted — a Mongo-only tenant with zero static-file trace anywhere in this repo.
+**Historical record, preserved for anyone reading old issues/PRs that reference the deleted routes**: the app had `apps`/`apps/[appId]`/`tenants`/`tenants/[tenantId]`/`queue` REST routes (list/create/get/update/delete, plus a synthesized job-queue view), a 3-tab dashboard page and a separate queue page, and `lib/mongodb.ts` exported a memoized `MongoClient` singleton. Issue #3's auth fix (mirroring salesleadgenerator's `requireApiKey`, its issue #105) was real and shipped before the retirement decision — mentioned here only so a reader of that issue's history understands it was fixed, then the whole surface was removed shortly after, not that the fix was reverted.
 
 ---
 
@@ -221,10 +208,6 @@ Two credential callers, corrected in the same change:
 ```
 
 Declares the search-router as a Claude-Code-discoverable MCP stdio server — a separate integration path from the OpenClaw prompts' own hardcoded `AgentFinder` invocation (§6). Requires `npm install` inside `search-router/seyu-search-router/` first (its `node_modules` is gitignored). Not yet exercised against a live Claude Code session.
-
-### `lib/mongodb.ts`
-
-Exports `getMongoClient(): Promise<MongoClient>` (memoized singleton, rejects if `MONGODB_URI` unset) and a default export `clientPromise`.
 
 ---
 

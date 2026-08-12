@@ -465,3 +465,61 @@ section 10's authorship rewrite.
 the same command with `--confirm-force-push`. The SHA-remapping follow-up
 this produces should be combined with section 10's already-pending
 SHA-remapping into a single documentation pass, not done twice.
+
+## 12. The `/admin` dashboard retired entirely -- 2026-08-12
+
+Per an explicit owner decision, `app/admin/*`, `app/api/admin/*`,
+`lib/api-auth.ts`, `lib/mongodb.ts`, and `scripts/sync-dvsc-to-admin.js`
+were deleted from this repo, not deprecated or feature-flagged off --
+gone. `app/layout.tsx`/`app/page.tsx` were rewritten to drop every link
+into the deleted UI; the landing page now just states the file-based
+config model and points at `rae_handover.md`.
+
+**Why removal instead of continuing to harden it**: the dashboard was a
+recurring source of real incidents, not a convenience worth defending.
+It was unauthenticated in production for most of its life (issue #3 --
+`requireApiKey()` was a permanently-disabled no-op, found 2026-08-02,
+only actually fixed 2026-08-12). It never stayed in sync with the static
+files it duplicated -- `dvsc` and `classscout` were entirely missing from
+it (issue #29), and a `classscout-api` tenant existed in its Mongo
+collections with zero trace in any static file anywhere in this repo
+(§8.4 of the now-rewritten `docs/LLD.md`, section 1 above, and the dead
+`appId === 'classscout-api'` special case removed alongside issue #6/#8's
+fix). Every fix to it -- auth, a sync script, a planned session-cookie
+login (issue #14) -- was more surface area to secure for a config set
+that fits in three small YAML/JSON files and was *already* the pipeline's
+actual source of truth the entire time: `config/cron-generator.js` and
+`schema-mapper.js` never read the Mongo collections, only
+`fs.readFileSync` on `tenants.json`/`apps.yaml`/`workers/*`, always. The
+dashboard was editing a copy nothing downstream of it actually consumed.
+
+**Issues closed as a direct consequence of this removal** (retired, not
+fixed -- there is nothing left to fix or lock down once the surface is
+gone): #11 (admin surface lockdown/Vercel Deployment Protection -- moot,
+there's no `/admin` origin to protect), #14 (session-cookie auth + GDS
+migration for the admin client -- moot, there's no admin client), #22
+(queue control-plane persistent enable/disable -- superseded; the queue's
+enable/disable was always `tenants.json`'s `discovery.enabled`/
+`enrichment.enabled` flags underneath the dashboard's UI, and that file
+is now the only way to toggle a job, which already satisfies what #22
+asked for), #29 (dvsc/classscout missing from the admin dashboard --
+moot, there's no admin dashboard for them to be missing from; its actual
+content -- the fact that this repo's tenant config needed a clearer
+single reference -- is what `rae_handover.md` exists to fix properly
+instead).
+
+**Verified before closing anything**: full type-check (`npx tsc --noEmit`,
+zero errors) and `npm run build` (succeeds, route table shows only `/`,
+`/api/health`, `/api/leads` remain) after the deletion, plus
+`scripts/verify-schema-mapper.js` (still 47/47 -- the pipeline itself was
+never coupled to the dashboard, confirming the "editing a copy nothing
+consumed" diagnosis above).
+
+**Takeaway for future sessions**: a config-editing UI that reads/writes a
+different store than the system it's meant to configure isn't a smaller
+version of the real source of truth -- it's a second one, and every
+divergence it silently accumulates (issue #29's missing tenants, the
+orphaned `classscout-api` entry) is a bug that looks like a feature gap
+until someone actually diffs the two stores against each other. The fix
+here wasn't a sync job; it was admitting only one of the two stores was
+ever real.

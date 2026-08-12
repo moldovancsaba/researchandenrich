@@ -5,29 +5,14 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 ## Repo Layout
 
 ```
-├── app/                       <- Next.js App Router (the /admin dashboard)
+├── app/                       <- Next.js App Router (minimal now -- see "The /admin
+│   │                              dashboard was removed" below)
 │   ├── layout.tsx                <- root layout
-│   ├── page.tsx                  <- landing page
-│   ├── admin/
-│   │   ├── layout.tsx            <- admin panel layout
-│   │   ├── page.tsx              <- admin dashboard (Apps/Tenants/Queue tabs)
-│   │   ├── queue/page.tsx        <- full queue page
-│   │   ├── globals.css
-│   │   └── components/
-│   │       ├── Providers.tsx
-│   │       └── PwaSetup.tsx
+│   ├── page.tsx                  <- static landing page (no admin UI)
 │   └── api/                      <- API routes
-│       ├── admin/                <- admin management endpoints (apps/tenants/queue --
-│       │   │                        Mongo-backed, see "two unsynced config sources" below)
-│       │   ├── apps/
-│       │   ├── tenants/
-│       │   └── queue/
 │       ├── health/route.ts
 │       └── leads/route.ts        <- local stub/mock only -- the real leads API this
 │                                     pipeline writes to lives in salesleadgenerator
-├── lib/                       <- shared utilities (for the /admin app above)
-│   ├── mongodb.ts                <- MongoDB connection helper
-│   └── api-auth.ts               <- API key authentication
 ├── prompts/                   <- prompt files (discovery/enrichment), OpenClaw-format
 │   ├── discovery/
 │   └── enrichment/
@@ -51,8 +36,10 @@ Agent runtime for ContentCreator — unified lead and program research service. 
 ├── scripts/
 │   ├── verify-schema-mapper.js   <- schema-mapper.js regression check (no test
 │   │                                 framework configured in package.json)
-│   ├── sync-dvsc-to-admin.js     <- syncs a static-file tenant into the Mongo-backed
-│   │                                 admin API (not yet run against a live deployment)
+│   ├── check-tenant-status-diff.js <- CI guard: at most one tenant's status/enabled
+│   │                                 change per commit (issue #6)
+│   ├── test-classscout-live.js   <- live health/dry-run/live integration test against
+│   │                                 the real classscout deployment
 │   ├── assert-credentials-rotated.js <- precondition gate for purge-history.sh (issue
 │   │                                 #10) -- exits non-zero if any old credential
 │   │                                 (issue #9) still authenticates
@@ -75,9 +62,21 @@ lives in the separate `classscout` repo, not here — this repo only holds the
 research prompts/schema-mapper/config that call it, the same relationship it
 has with salesleadgenerator for the sales-lead-api tenants.
 
-See `docs/RUNTIME_ARCHITECTURE_NOTES.md` for details on this repo's two unsynced
-config sources (static files vs. the Mongo-backed admin API), Claude Code MCP
-compatibility (`.mcp.json`), and other findings from onboarding `dvsc`.
+**The `/admin` dashboard was removed (2026-08-12).** This repo used to ship a
+Next.js `/admin` UI + `/api/admin/*` API backed by its own MongoDB
+collections (`contentcreator_apps`/`contentcreator_tenants`) as a second,
+UI-editable copy of tenant/app config alongside the static files below. It
+was a persistent liability, not a convenience: it was unauthenticated in
+production for most of its life (issue #3), it never actually stayed in sync
+with the static files it duplicated (issue #29 — it was missing `dvsc` and
+`classscout` entirely), and it added a whole Mongo-backed surface area to
+secure/maintain for a config set that's small enough to hand-edit directly.
+**The static files ARE the config now, full stop — no second source.** Edit
+`tenants.json`, `apps.yaml`, or `workers/<tenant>/*.yaml` directly in this
+repository and commit; there is no dashboard, no database, and nothing to
+keep in sync. See `docs/RUNTIME_ARCHITECTURE_NOTES.md` section 12 for the
+full retirement writeup and `rae_handover.md` for the complete operational
+reference to this repo as it exists now.
 
 ## New Agent Onboarding
 
@@ -121,9 +120,9 @@ tenant-specific instructions elsewhere:
    or enabled flags change, edit `tenants.json` / `workers/<tenantId>/*.yaml`
    and re-run `node config/cron-generator.js`.
 8. Read `docs/RUNTIME_ARCHITECTURE_NOTES.md` for known gaps and prior
-   findings (the dual static-file/Mongo-admin config-source split, bugs
-   already found and fixed, live-test results) before assuming anything
-   not explicitly stated in a tenant's own files.
+   findings (bugs already found and fixed, live-test results, the retired
+   `/admin` dashboard) before assuming anything not explicitly stated in a
+   tenant's own files.
 
 **Onboarding a brand-new tenant** follows the exact same pattern `dvsc`
 used: add an entry to `tenants.json` and `apps.yaml`, add
@@ -241,7 +240,7 @@ The cron-generator reads these flags to include/exclude operations in the cron s
 
 Deployed on Vercel as a Next.js App Router project. The `vercel.json` is empty (`{}`) so Vercel auto-detects the framework. The build command is `next build` and the dev command is `next dev`.
 
-The admin UI at `/admin` provides a dashboard for managing apps, tenants, and the job queue. API routes at `/api/admin/*` require an `x-api-key` header matching the server's `ADMIN_API_KEY` env var (in production, an unset `ADMIN_API_KEY` fails every admin request closed rather than silently allowing them). The admin UI itself reads `NEXT_PUBLIC_ADMIN_API_KEY` to send that header from the browser — set both to the same value. `scripts/sync-dvsc-to-admin.js` reads `ADMIN_API_KEY` directly. The landing page at `/` links to the admin panel and health check.
+The deployed app is minimal: a static landing page at `/` and `GET /api/health`. `GET /api/leads` is a local stub/mock only. There is no admin UI and no admin API — see "The `/admin` dashboard was removed" above.
 
 ## Prohibited
 
