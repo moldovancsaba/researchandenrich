@@ -12,3 +12,4 @@ out/
 .env.seyu
 .env.dvsc
 .env.classscout
+tsconfig.tsbuildinfo

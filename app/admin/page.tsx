@@ -54,7 +54,7 @@ export default function AdminPage() {
   const loadApps = async () => {
     try {
       const res = await fetch(`${apiBase}/apps?brand=cogmap`, {
-        headers: { 'x-api-key': process.env.NEXT_PUBLIC_SLG_API_KEY || '' },
+        headers: { 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
@@ -67,7 +67,7 @@ export default function AdminPage() {
   const loadTenants = async () => {
     try {
       const res = await fetch(`${apiBase}/tenants?brand=cogmap`, {
-        headers: { 'x-api-key': process.env.NEXT_PUBLIC_SLG_API_KEY || '' },
+        headers: { 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
@@ -94,7 +94,7 @@ export default function AdminPage() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_SLG_API_KEY || '',
+          'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '',
         },
         body: JSON.stringify(app),
       })
@@ -125,7 +125,7 @@ export default function AdminPage() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_SLG_API_KEY || '',
+          'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '',
         },
         body: JSON.stringify(tenant),
       })
@@ -151,7 +151,7 @@ export default function AdminPage() {
     try {
       const res = await fetch(`${apiBase}/tenants/${tenantId}`, {
         method: 'DELETE',
-        headers: { 'x-api-key': process.env.NEXT_PUBLIC_SLG_API_KEY || '' },
+        headers: { 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' },
       })
       if (!res.ok) {
         const err = await res.json()
@@ -271,7 +271,7 @@ export default function AdminPage() {
                             try {
                               const res = await fetch(`${apiBase}/apps/${app.appId}`, {
                                 method: 'DELETE',
-                                headers: { 'x-api-key': process.env.NEXT_PUBLIC_SLG_API_KEY || '' },
+                                headers: { 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' },
                               })
                               if (!res.ok) throw new Error('Delete failed')
                               loadApps()

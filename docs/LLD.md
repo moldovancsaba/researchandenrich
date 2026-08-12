@@ -188,17 +188,13 @@ All four import `requireApiKey` from `lib/api-auth.ts` and `clientPromise` from 
 - `app/api/leads/route.ts` — **not a real admin route** — a lightweight local stub/mock (`GET` returns `{leads: []}`, `POST`/`PUT` echo the body back). The real leads API this pipeline actually targets lives in the separate `salesleadgenerator` deployment (`tenants.json`'s `apiBase`), not here.
 - `app/api/health/route.ts` — trivial `{status: "ok", framework: "nextjs", timestamp}`.
 
-### 8.2 ⚠ Auth is a permanently-disabled no-op — a real, load-bearing finding
+### 8.2 Auth (issue #3, fixed)
 
-`lib/api-auth.ts`:
+`lib/api-auth.ts`'s `requireApiKey()` now actually validates the request's `x-api-key` header against `process.env.ADMIN_API_KEY`, returning a `401 NextResponse` on mismatch or a missing header — mirrors salesleadgenerator's own `requireApiKey` (its issue #105) including its fail-open-outside-production / fail-closed-in-production behavior for an unset key. Every `/api/admin/*` route already called this function and treated a non-null return as "reject"; the fix required zero caller-side changes in the five route files.
 
-```ts
-export function requireApiKey(_request: Request): Response | null {
-  return null
-}
-```
-
-**This unconditionally returns `null`.** Every `/api/admin/*` route imports and calls it, treating a non-null return as "reject" — but it never returns non-null. **There is currently no authentication whatsoever on any `/api/admin/*` route**, despite `scripts/sync-dvsc-to-admin.js` and the admin UI both sending an `x-api-key`/`ADMIN_API_KEY` header as if enforcement existed. The check is wired in correctly and structurally sound — it's just permanently disabled. This is a real security gap in the deployed `/admin` app (anyone who can reach the URL can create/edit/delete apps and tenants), not a documentation gap — worth its own tracking issue when this repo's owner is ready to prioritize it.
+Two credential callers, corrected in the same change:
+- `scripts/sync-dvsc-to-admin.js` already sent `x-api-key: $ADMIN_API_KEY` correctly — no change needed there.
+- The admin UI (`app/admin/page.tsx`, `app/admin/queue/page.tsx`) previously sent `x-api-key: NEXT_PUBLIC_SLG_API_KEY` on some requests (a stray reuse of the unrelated sales-lead-generator key, itself already publicly inlined into the browser bundle) and **no header at all** on the queue page's three fetches. Both are now `NEXT_PUBLIC_ADMIN_API_KEY` — its own admin-scoped var, consistently applied. This is still a value visible in the client bundle, not a real secret; the deeper fix (a session/login model for `/admin` so the browser never needs to hold the key at all) is its own, larger M1-milestone piece of work, not part of this change.
 
 ### 8.3 Pages
 

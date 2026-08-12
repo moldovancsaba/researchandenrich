@@ -47,8 +47,8 @@ export default function QueuePage() {
     const load = async () => {
       try {
         const [tenantsRes, queueRes] = await Promise.all([
-          fetch('/api/admin/tenants'),
-          fetch('/api/admin/queue'),
+          fetch('/api/admin/tenants', { headers: { 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' } }),
+          fetch('/api/admin/queue', { headers: { 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' } }),
         ])
         if (!tenantsRes.ok) throw new Error(`HTTP ${tenantsRes.status}`)
         if (!queueRes.ok) throw new Error(`HTTP ${queueRes.status}`)
@@ -122,12 +122,12 @@ export default function QueuePage() {
     try {
       const res = await fetch(`/api/admin/queue`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' },
         body: JSON.stringify({ jobId, enabled: !currentEnabled }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       // Refresh the jobs list
-      const queueRes = await fetch('/api/admin/queue')
+      const queueRes = await fetch('/api/admin/queue', { headers: { 'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || '' } })
       const queueData = await queueRes.json()
       setJobs(queueData.jobs || [])
     } catch (e: any) {

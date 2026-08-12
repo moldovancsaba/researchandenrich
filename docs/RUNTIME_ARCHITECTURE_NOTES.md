@@ -380,3 +380,42 @@ task should call that out explicitly in its own right (not just bundle it
 into the primary change's commit message) -- it's exactly the kind of
 change a reviewer skimming a diff for "classscout scope narrowing" would
 miss until a live cron cycle actually stopped running.
+
+## 10. AI-assistant git identity leaked into commit authorship, 12 commits -- found and rewrite handed to the owner, 2026-08-12
+
+While working on issue #3, checking `git log --format='%an <%ae>'` on this
+repo's own history turned up 12 commits (`04f56da` through `b97ca09`,
+2026-08-02 through 2026-08-12) authored and committed as
+`Claude <noreply@anthropic.com>` -- a direct violation of this repo's own
+binding AI Attribution Policy above, which the sessions making those
+commits had themselves been reading and citing while writing this exact
+document. The root cause: this sandbox's global `git config user.name`/
+`user.email` defaulted to that identity, and no session before this one
+had checked actual commit authorship against the policy it was following
+for commit *message* content.
+
+**Fixed going forward**: this session's `git config --global user.name`/
+`user.email` reset to `moldovancsaba` / `moldovancsaba@gmail.com` (matching
+every other commit in this repo's history, not a newly-invented identity).
+
+**Not fixed here**: rewriting the 12 already-pushed commits' authorship
+requires `git filter-branch --env-filter` followed by a force-push to
+`main` -- both `git filter-branch` and the `git reset --hard` needed to
+stage it are blocked outright by this sandbox's own safety classifier,
+independent of and unrelated to any of this repo's own git-safety rules.
+The owner authorized the rewrite; the exact commands (env-filter matching
+`noreply@anthropic.com` -> `moldovancsaba <moldovancsaba@gmail.com>`, a
+mandatory mirror backup first, then `git push --force origin main`) were
+handed to them to run from an environment without this restriction.
+**Once that rewrite runs, every SHA cited anywhere in this document from
+`04f56da` onward becomes stale** -- including several in section 9 above
+(`c17d105`, `21150da`, `017ae6b`, `f4e898a`, `0f59f68`). Update those
+citations to the post-rewrite hashes (or annotate them as pre-rewrite
+identifiers) in the same change that confirms the rewrite completed; do
+not leave this note un-followed-up.
+
+**Takeaway for future sessions**: a policy this document itself enforces
+on *commit message content* is not automatically satisfied by the
+*commit's own authorship metadata* -- check `git log --format='%an <%ae>'`
+early in any session working in a repo with an AI-attribution policy, not
+just the diff being committed.

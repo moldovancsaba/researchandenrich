@@ -236,7 +236,7 @@ The cron-generator reads these flags to include/exclude operations in the cron s
 
 Deployed on Vercel as a Next.js App Router project. The `vercel.json` is empty (`{}`) so Vercel auto-detects the framework. The build command is `next build` and the dev command is `next dev`.
 
-The admin UI at `/admin` provides a dashboard for managing apps, tenants, and the job queue. API routes at `/api/admin/*` handle CRUD operations (API key required). The landing page at `/` links to the admin panel and health check.
+The admin UI at `/admin` provides a dashboard for managing apps, tenants, and the job queue. API routes at `/api/admin/*` require an `x-api-key` header matching the server's `ADMIN_API_KEY` env var (in production, an unset `ADMIN_API_KEY` fails every admin request closed rather than silently allowing them). The admin UI itself reads `NEXT_PUBLIC_ADMIN_API_KEY` to send that header from the browser — set both to the same value. `scripts/sync-dvsc-to-admin.js` reads `ADMIN_API_KEY` directly. The landing page at `/` links to the admin panel and health check.
 
 ## Prohibited
 
