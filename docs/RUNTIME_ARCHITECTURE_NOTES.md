@@ -528,7 +528,11 @@ not need regeneration. `dependencies` and `healthCheck` are now readable but are
 still not emitted: adding keys would change a contract consumed by the OpenClaw
 runtime, which cannot be verified from inside this repo.
 
-## 12. list-based health checks never worked -- 2026-08-11
+## 12b. list-based health checks never worked -- 2026-08-11
+
+> Numbering note: two sections were written as "12" by concurrent sessions
+> on 2026-08-12 and 2026-08-11. Both are cross-referenced elsewhere, so this
+> one is disambiguated as 12b rather than renumbered.
 
 `runtime/verifier/list-based.js#healthCheck()` concatenated `apiBase + endpoint`
 without stripping the HTTP verb. Every producer of that string in this repo emits
@@ -646,7 +650,7 @@ oversight. Also unchanged: `Email not lowercase: <address>` still includes the
 address, which is personal data -- preserved to keep existing assertions stable,
 but any surface rendering these errors must treat them accordingly.
 
-## 23. apps.yaml renamed to name its consumers -- 2026-08-12
+## 14. apps.yaml renamed to name its consumers -- 2026-08-12
 
 The `apps:` map lists the third-party applications this service delivers
 research into. One entry was named `researchandenrich` -- this repo's own name,
@@ -675,3 +679,32 @@ The one place that did key on an app id -- the `/admin` queue route's
 `scripts/test-classscout-live.js` still contains "researchandenrich" in a test
 record id and description. That is the repo/service name and is correct there;
 it is not the app id.
+
+
+## 15. Dependency state after the branch reconciliation -- 2026-08-12
+
+`npm run audit` runs `scripts/audit-gate.js`, which audits both packages and
+fails on any advisory except an explicitly baselined set. Every baseline entry
+must carry a reason, a removal condition and a pointer to where it is
+documented; an entry without all three is a silent exemption, which is what the
+gate exists to prevent.
+
+**One advisory is baselined.** `next` reports a high-severity set whose only
+fix is `next@16.3.0`, a breaking major -- no 14.x release closes it. It covers
+HTTP request smuggling in rewrites, Image Optimizer DoS, RSC deserialization
+DoS and cache poisoning. Exposure is reduced by the App Router surface now
+being tiny (`/`, `/api/health`, `/api/leads`) after the dashboard removal, and
+by no authenticated surface remaining. Remove the baseline when the Next.js 16
+migration lands or a 14.x backport ships.
+
+**`postcss` was fixed rather than baselined.** `next@14.2.35` pins
+`postcss@8.4.31` in its own `node_modules`, carrying four high advisories
+including arbitrary file read via an attacker-controlled `sourceMappingURL`. A
+direct `overrides: { "postcss": "^8.5.23" }` is rejected by npm as conflicting
+with the direct devDependency; the working form is raising the devDependency
+and using the dependency-reference override `"postcss": "$postcss"`, which
+dedupes every copy to the root. `next build` passes on the overridden version.
+
+**search-router: 0 advisories.** Five (two high) were cleared by a
+non-breaking `npm audit fix`; all arrived transitively through
+`@modelcontextprotocol/sdk`.

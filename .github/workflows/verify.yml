@@ -1,0 +1,74 @@
+name: verify
+
+# This repository has no PR gate: work lands directly on main. These checks are
+# therefore the only automated signal before a change reaches production.
+on:
+  push:
+    branches: [main, preview, dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Must match engines.node and the Vercel runtime.
+          node-version: '22'
+          cache: npm
+
+      - name: Install (root)
+        run: npm ci
+
+      - name: Install (search-router)
+        run: npm --prefix search-router/seyu-search-router ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Runs every regression suite, the search-router suite, and the cron
+      # staleness gate -- Definition-of-Done item 2, mechanically enforced.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Advisory drift is what let the framework fall 35 patch releases behind
+      # before an audit found it. Baselined advisories warn; anything
+      # un-baselined fails hard. See scripts/audit-gate.js.
+      - name: Audit
+        run: npm run audit
+
+      # Blocks NEW tracked env files rather than the known-outstanding ones.
+      # Removing the existing five is issue #10, which is blocked on credential
+      # rotation (#9) -- and the owner has elected to keep the current
+      # credentials in use for now. A permanently-red gate would train people to
+      # ignore it, so the known set is baselined and anything outside it is a
+      # hard failure. DELETE THE BASELINE when #10 lands.
+      - name: Assert no new environment file is tracked
+        run: |
+          BASELINE=".env.check .env.cogmap .env.cogmap.bak .env.prod .env.vercel"
+          fail=0
+          for f in $(git ls-files | grep -E '^\.env' | grep -v '\.env\.example' || true); do
+            case " $BASELINE " in
+              *" $f "*) echo "WARN  $f is still tracked (known, see issue #10)" ;;
+              *) echo "FAIL  $f is a NEWLY tracked environment file"; fail=1 ;;
+            esac
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "ok    no newly tracked environment files"
+
+      # The dashboard removal took every NEXT_PUBLIC credential with it. This
+      # keeps one from coming back.
+      - name: Assert no credential is inlined into the client bundle
+        run: |
+          if grep -rqE 'NEXT_PUBLIC_[A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD)' .next/static/ 2>/dev/null; then
+            echo "FAIL  a NEXT_PUBLIC_ credential is inlined into the client bundle"
+            grep -rhoE 'NEXT_PUBLIC_[A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD)' .next/static/ | sort -u
+            exit 1
+          fi
+          echo "ok    no credential inlined into the client bundle"

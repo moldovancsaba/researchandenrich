@@ -22,9 +22,14 @@ invent a fourth.
 
 A change is not done until all of these are true:
 
-1. **`node scripts/verify-schema-mapper.js` passes** — every real tenant in
-   `tenants.json` is exercised automatically; add regression coverage for
-   any new mapping/validation logic in the same change, not as a follow-up.
+1. **`npm test` passes** — this runs every regression suite
+   (`verify-schema-mapper`, `verify-cron-generator`, `verify-runtime`), the
+   search-router suite, and `config/cron-generator.js --check`. Every real
+   tenant in `tenants.json` is exercised automatically; add regression coverage
+   for any new logic in the same change, not as a follow-up. Amended
+   2026-08-12: this item previously named `verify-schema-mapper.js` alone, which
+   covered one file — the cron generator silently discarded its own inputs for
+   weeks while that gate stayed green.
 2. **`node config/cron-generator.js` was re-run** if `tenants.json` or any
    `workers/*/*.yaml` changed, and the regenerated `config/cron.yaml` is
    committed alongside.
