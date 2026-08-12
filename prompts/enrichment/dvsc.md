@@ -71,7 +71,14 @@ gaps behind "that tenant just doesn't have it".
 - `pro_for_organization` / `con_for_organization` — **these exact names for all three.**
   Never emit `pro_for_<tenant>` / `con_for_<tenant>`; those are legacy and are treated as
   forbidden fields.
-- `product_fit_notes`, `notes`, `priority`, `ice`
+- `product_fit_notes`, `notes`, `priority`
+
+**`ice` is the one documented exception to "emit every field empty".** It must carry real
+integers — `{ "impact": 1-10, "confidence": 1-10, "ease": 1-10 }`. Verified 2026-08-12:
+`PUT ice:{}` is rejected **HTTP 400** ("ice.impact must be an integer between 1 and 10") on
+both cogmap and dvsc. If you cannot score a record, omit `ice` entirely rather than sending
+an empty object — an empty one fails the whole write. `ice.ease` is recomputed server-side
+regardless of what you send.
 
 ### Forecast (values follow the tenant's `forecastModel`; the FIELDS are always present)
 - `recommended_tier`, `revenue_model`, `estimated_participants`

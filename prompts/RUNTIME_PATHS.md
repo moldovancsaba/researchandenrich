@@ -85,16 +85,17 @@ git clone https://github.com/moldovancsaba/researchandenrich
 
 ```bash
 source "${RAE_ENV_DIR:-$RAE_ROOT}/.env.<tenantId>"
+```
 
 > **Env files normally live OUTSIDE the clone.** Credentials are not repo content, and
 > a clone is disposable. `$RAE_ROOT` is only the fallback for the case where an operator
 > deliberately co-locates them. Set `RAE_ENV_DIR` explicitly in any real deployment.
-```
 
 Env files are **gitignored** and operator-supplied — a clone will not contain
-working ones. `RAE_ENV_DIR` exists for deployments that keep credentials outside
-the repository (a mounted secrets volume, for instance); it defaults to the repo
-root, which is where `README.md` documents them.
+working ones. `RAE_ENV_DIR` is where they actually live in a real deployment (a
+mounted secrets volume, a directory outside the clone); `$RAE_ROOT` is only the
+fallback for a local checkout that deliberately co-locates them. Set
+`RAE_ENV_DIR` explicitly rather than relying on the fallback.
 
 If the file is missing, that is a **provisioning** problem, not a path problem.
 Do not invent values and do not proceed with a partially-configured tenant —

@@ -933,3 +933,30 @@ GET-by-id lied. This independently reproduces the assumption behind
 `runtime/verifier/list-based.js`. Never conclude a write failed, or retry it, on
 GET-by-id evidence alone -- a retry loop driven by that endpoint would duplicate
 production records.
+
+## 15. ice must not be emitted empty; ticketSizeEstimate is safe to backfill (2026-08-12)
+
+Second dry-run, requested by the repo developer to close the last two fields outside the
+enforced contract. Same method as §14: reversible PUT on a DRAFT record per tenant,
+restored, verified **by list**. Both test records had real contacts, so the quality gate
+was not trivially short-circuited.
+
+| field | cogmap | dvsc | verdict |
+|---|---|---|---|
+| `PUT ice:{}` | **HTTP 400** | **HTTP 400** | rejected — must stay out of the backfill |
+| `PUT ticketSizeEstimate:""` | HTTP 200 | HTTP 200 | ignored and recomputed — safe to backfill |
+
+**`ice`** — `{"error":"Validation failed","details":["ice.impact must be an integer between
+1 and 10","ice.confidence must be an integer…"]}`. Two corrections to the prior assumption
+in §6: the rejection is **400, not 422**, and it fires on `impact`/`confidence`, not on
+`ease`. The stored value was not clobbered by the rejected write. Consequence: the shared
+contract's "emit every field, empty rather than absent" rule **cannot hold for `ice`** — an
+empty object fails the entire write, taking the other 40 fields with it. The contract now
+states this exception explicitly: score it, or omit the key.
+
+**`ticketSizeEstimate`** — accepted, and the stored object came back server-recomputed with
+a fresh `computedAt` and unchanged values (`method: "tier_band"`). Sending `""` neither
+clobbers nor persists; it is discarded and recomputed, exactly as `ice.ease` is. Safe to
+move from `SALES_LEAD_SERVER_COMPUTED_FIELDS` into the backfill.
+
+Both records restored and verified by list, per §14.
