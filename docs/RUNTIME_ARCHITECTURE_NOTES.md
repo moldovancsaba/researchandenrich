@@ -750,3 +750,43 @@ Two consequences worth knowing:
 
 `config/cron.yaml` is not symlinked, so how the runtime picks up schedule
 changes is a separate question that has not been established here.
+
+## 13. The three sales-lead-api prompts had drifted apart (2026-08-12)
+
+A live audit of all three tenants found **22 of 68 fields diverging by more than 50%**
+across cogmap, seyu and dvsc — tenants that share one `schemaFamily` and are supposed to
+emit an identical structure:
+
+| field | cogmap | seyu | dvsc |
+|---|---|---|---|
+| `sportCode`, `mergeKey`, `classificationTags` | 90% | 84% | 0% |
+| `contacts` | 31% | 100% | 100% |
+| `contactEmails` | 4% | 30% | 95% |
+| `value_proposition` | 95% | 79% | 16% |
+| `source` | 80% | 22% | 100% |
+
+Every field had a different tenant as the outlier, so this was not one broken prompt — the
+three drifted independently.
+
+**Root cause:** only `prompts/discovery/seyu.md` ever listed the fields to collect ("Data
+Collection For Each Lead"). cogmap and dvsc had no equivalent section, and
+`_mapSalesLeadApi` passes the payload through as-is, so a field the prompt never asks for
+is simply absent. Nothing failed; absence read as "that tenant doesn't have it".
+
+**Why it mattered beyond tidiness:** it silently corrupts cross-tenant comparison. An
+agent-side analysis on the same day concluded "reviewers reward records with contacts"
+(cogmap 90% of reviewed vs 29% of unreviewed) and "reviewers reward value propositions"
+(seyu 86% vs 0%). Both were probably artefacts of which fields each prompt happened to
+emit, not reviewer preference — a measurement defect masquerading as a finding.
+
+**Fix:** `prompts/shared/sales-lead-fields.md` is now the single source of truth for the
+field contract and is inlined verbatim into all six sales-lead-api prompt files between
+`<!-- shared:sales-lead-fields start/end -->` markers. It requires every field to be
+emitted on every record, empty rather than omitted, and forbids search-engine URLs and the
+legacy `pro_for_<tenant>`/`con_for_<tenant>` names in favour of
+`pro_for_organization`/`con_for_organization`.
+
+`scripts/verify-prompt-parity.js` fails the build if any of the three drifts from the SSOT,
+if classscout (a different schemaFamily) inherits the block, or if legacy brand fields
+reappear. It is wired into `npm test`. Verified to fail on an introduced drift, not just to
+pass on the happy path.
