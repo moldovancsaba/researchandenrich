@@ -61,11 +61,13 @@ because the tenant env files deliberately do **not** live inside the repo clone.
 | tenant | variable(s) | source |
 |---|---|---|
 | cogmap, dvsc | `SLG_API_KEY` | operator's env file |
-| seyu | `SLG_API_KEY` + `SEYU_API_KEY` (same value) | one shared salesleadgenerator key |
+| seyu | `SLG_API_KEY` | one shared salesleadgenerator key; prompts read `SLG_API_KEY` directly |
 | classscout | `INGEST_API_KEY`, `IMGBB_API_KEY` | pulled from the classscout Vercel project |
 
 All at mode `600`, gitignored, never echoed. **seyu is not a separate credential** — an earlier
-revision of `AGENT_RUNTIME_FINDINGS.md` claimed it was unprovisionable; corrected in `9e3ef35`.
+revision claimed it was unprovisionable (corrected in `9e3ef35`), and the duplicate
+`SEYU_API_KEY` has since been removed from the operator's env file: the prompts read
+`SLG_API_KEY`, so the duplicate was a second copy of a secret under a misleading name.
 
 ### What the operator enforces that this repo does not
 

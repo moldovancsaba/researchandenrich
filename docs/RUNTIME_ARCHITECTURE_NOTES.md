@@ -853,3 +853,29 @@ and `revenue_model: ''` on tenants that previously omitted them. Local validatio
 accepts empty by design, but the remote contract was not exercised -- doing so
 means a real write to a live collection. Confirm with a single dry-run write per
 tenant before relying on this in production.
+
+## 14. Empty forecast fields are accepted; GET-by-id is not trustworthy (2026-08-12)
+
+**Dry-run requested by the repo developer before backfilling the full 44-field contract in
+`_mapSalesLeadApi`.** Run by the operator, who holds the credentials.
+
+Method: no `delete` action exists for sales-lead-api (`getApiEndpoint` supports
+`list/get/put/post/health/stats`), so a test POST would be permanent. Instead one DRAFT
+record per tenant was mutated with a reversible PUT, then restored.
+
+Result — **the API accepts empty strings for previously-omitted forecast fields**:
+
+| tenant | record | PUT `recommended_tier:"" revenue_model:""` | restored |
+|---|---|---|---|
+| cogmap | De Anza Force | HTTP 200, stored as `""` | `performance` / `per_participant` |
+| dvsc | K&H Bank | HTTP 200, stored as `""` | `elite` / `hybrid` |
+
+No 422 from the quality gate on empty forecast values. The backfill is therefore safe on
+this axis; `ice.ease` server-side recomputation was not exercised and remains unverified.
+
+**Second finding, unplanned:** after a *successful* restore, `GET /api/leads/<id>` reported
+`recommended_tier: null, revenue_model: null` for both records, while the list endpoint
+showed the correct restored values. The restore was fine; GET-by-id was wrong. This
+independently reproduces the assumption behind `runtime/verifier/list-based.js`. Treat
+GET-by-id as advisory: **verify writes by list, and never conclude a write failed — or
+worse, retry it — on GET-by-id evidence alone.**

@@ -85,6 +85,10 @@ git clone https://github.com/moldovancsaba/researchandenrich
 
 ```bash
 source "${RAE_ENV_DIR:-$RAE_ROOT}/.env.<tenantId>"
+
+> **Env files normally live OUTSIDE the clone.** Credentials are not repo content, and
+> a clone is disposable. `$RAE_ROOT` is only the fallback for the case where an operator
+> deliberately co-locates them. Set `RAE_ENV_DIR` explicitly in any real deployment.
 ```
 
 Env files are **gitignored** and operator-supplied — a clone will not contain

@@ -12,7 +12,7 @@ what failed. Everything below is observed, not predicted.
 | `classscout` | `INGEST_API_KEY`, `IMGBB_API_KEY` | Vercel project `classscout`, production env — pullable |
 | `cogmap` | `SLG_API_KEY` | repo `.env.cogmap` only |
 | `dvsc` | `SLG_API_KEY` | same key as cogmap |
-| `seyu` | `SEYU_API_KEY` | the **same shared `SLG_API_KEY`** as cogmap/dvsc — not a separate secret |
+| `seyu` | `SLG_API_KEY` | the **same shared key** as cogmap/dvsc — there is no separate seyu credential |
 
 **The `salesleadgenerator` Vercel project holds zero environment variables** — production,
 preview and development are all empty; only Vercel's own `VERCEL_*`/`TURBO_*` system vars
@@ -22,7 +22,7 @@ not stored there.
 **Correction (2026-08-12, same day):** an earlier revision of this document concluded that
 `seyu` "cannot be provisioned" because no `SEYU_API_KEY` existed anywhere. That was wrong.
 seyu is the same salesleadgenerator client as cogmap and dvsc and authenticates with the
-same `SLG_API_KEY`; the prompt simply reads it under a different variable name. Verified by
+same `SLG_API_KEY`. The prompts read `SLG_API_KEY` directly (8e34d7b); an earlier arrangement had them read `SEYU_API_KEY`, which only worked where the key had been duplicated under that name and 401'd in any environment provisioned from README. Verified by
 calling `GET /api/leads?brand=seyu` with the shared key: HTTP 200, 681 records. The lesson
 worth keeping is that "no separate credential exists" was evidence about the credential
 store, not about the tenant — and the two were conflated. Tenant isolation here is enforced
