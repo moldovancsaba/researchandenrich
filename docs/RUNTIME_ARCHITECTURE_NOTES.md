@@ -574,3 +574,74 @@ stub server, so the suite needs no credentials and no internet.
 
 **Not covered:** this verifies reachability and status code only. A `200`
 carrying an error payload is still reported healthy.
+
+## 13. schema-mapper.js hardening: encoding, a vacuous gate, and two throw sites -- 2026-08-11
+
+Three defects in the validation gate, all found by the 2026-08-10 audit and
+fixed together. Regression coverage went from 40 checks to 111.
+
+**13a. `getApiEndpoint` interpolated agent-supplied ids into URLs unencoded.**
+`id` reaches that function from a record the research agent assembled from
+web-sourced content -- the least trustworthy input in the system. An id
+containing `? & # /` or `..` altered the request path or injected query
+parameters into a call carrying `SLG_API_KEY`. The concrete harm is the one
+this module exists to prevent: a stray `?` truncates the path and drops
+`?brand=`, and salesleadgenerator's `resolveBrand()` defaults a missing brand
+to `cogmap`, so a `seyu` or `dvsc` enrichment would silently write into
+`cogmap`'s collection (see §4a). Path segments now go through
+`encodeURIComponent`, queries through `URLSearchParams`, and ids are checked
+against `/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/`, throwing `InvalidIdentifierError`
+otherwise. Emitted URLs for legitimate ids are byte-identical, including query
+parameter order.
+
+**13b. The anti-contamination gate enforced nothing.** `validateForTenant`
+tested `forbiddenFields` against the top level of its argument. For program-api
+that argument is the ingest envelope `{ operations: [...] }`, so classscout's
+13-entry list was checked against keys that are never at that level and passed
+vacuously on every call. For the three sales-lead-api tenants the list is `[]`,
+so the loop iterated nothing. The module's own docblock calls this "the main
+anti-contamination gate"; in the validate path it was inert, and the existing
+suite stayed green because it contained no test that a forbidden field is
+actually rejected.
+
+`mapToApiPayload`'s own deletion still protected the write path, so this was a
+missing backstop rather than a live contamination. The realistic gap it left
+open is a hand-built patch envelope: `mapToApiPayload` destructures
+`{ id, ...patch }`, so a caller bypassing it carries every non-`id` key through
+untouched. Fixed by `extractSubjectDocuments`, which resolves the document to
+inspect per schema family as an explicit named step; an unrecognised shape now
+produces a structural error instead of vacuous success, and violations carry
+their location (`operations[0].documents[1]`).
+
+Worth stating why this is more than tidiness: classscout writes to another
+company's public provider catalogue, and the forbidden list includes
+`decision_maker_name`, `decision_maker_contact` and `contact_phone` -- personal
+data from a sales pipeline. Contamination would publish it.
+
+**13c. The lead validator threw instead of reporting.** `_validateLead` pushed
+a shape error for a non-array `contacts` and then iterated it four lines later
+regardless, so `contacts: {}` threw `TypeError: not iterable` and aborted the
+whole batch rather than rejecting one record. Under the Fixed-Tenant Contract
+runs are linear, so a lost run is a lost cycle for that tenant. Same class in
+`_standardizeContacts`, which runs inside `mapToApiPayload` on raw agent output
+-- i.e. it was the *earlier* throw site, and hardening only the validator would
+have left it live. §4 records a prior instance of exactly this pattern
+(`forbiddenFields` stored as an object, iterated with `for...of`).
+
+The subtlest case was `contacts: "a@b.c"`. A string is iterable, so it did not
+throw -- it iterated characters, found no `.email` on any of them, and reported
+**valid**. A false pass that would have been written to the API.
+
+Division of responsibility now: `_standardizeContacts` skips malformed entries
+silently (it has no errors array and must not throw); `_validateLead` reports
+them. A malformed entry is never silently repaired, only left untouched. A
+fuzz check asserts `validateForTenant` never throws across a spread of payload
+shapes for all four tenants.
+
+**Unchanged and deliberate:** the three sales-lead-api tenants keep an empty
+`forbiddenFields` list. They legitimately share field names
+(`pro_for_organization` etc. are shared across all brands as of
+salesleadgenerator v2.3.0, per §4), so the empty list is correct rather than an
+oversight. Also unchanged: `Email not lowercase: <address>` still includes the
+address, which is personal data -- preserved to keep existing assertions stable,
+but any surface rendering these errors must treat them accordingly.

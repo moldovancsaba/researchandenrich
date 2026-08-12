@@ -91,6 +91,11 @@ function buildEndpoint(base, segments, query) {
   return url;
 }
 
+/** Shape predicate applied before any property access or iteration. */
+function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
 /**
  * Resolve which document(s) a forbidden-field / required-field check should
  * inspect for a given schema family.
@@ -505,23 +510,40 @@ class SchemaMapper {
   }
 
   _validateLead(tenant, payload, errors) {
-    // Validate contacts
-    if (payload.contacts && !Array.isArray(payload.contacts)) {
-      errors.push('contacts must be an array');
-    }
-
-    // Validate emails are lowercase
-    if (payload.contacts) {
-      for (const contact of payload.contacts) {
-        if (contact.email && contact.email !== contact.email.toLowerCase()) {
-          errors.push(`Email not lowercase: ${contact.email}`);
-        }
+    // Contacts. The previous version pushed a shape error and then iterated
+    // anyway, so `contacts: {}` threw "not iterable" and aborted the whole
+    // agent run instead of rejecting one record. A string is iterable, so
+    // Array.isArray is the necessary test -- `contacts: "a@b.c"` used to
+    // iterate characters and silently report no errors, a false pass.
+    if (payload.contacts !== undefined && payload.contacts !== null) {
+      if (!Array.isArray(payload.contacts)) {
+        errors.push('contacts must be an array');
+        // Deliberately do not fall through to iteration.
+      } else {
+        payload.contacts.forEach((contact, i) => {
+          if (!isPlainObject(contact)) {
+            errors.push(`contacts[${i}] must be an object`);
+            return;
+          }
+          if (contact.email !== undefined && contact.email !== null) {
+            if (typeof contact.email !== 'string') {
+              errors.push(`contacts[${i}].email must be a string`);
+            } else if (contact.email !== contact.email.toLowerCase()) {
+              errors.push(`Email not lowercase: ${contact.email}`);
+            }
+          }
+        });
       }
     }
 
-    // Validate phone format
-    if (payload.contact_phone && !payload.contact_phone.startsWith('+')) {
-      errors.push(`Phone not in international format: ${payload.contact_phone}`);
+    // Phone format
+    if (payload.contact_phone !== undefined && payload.contact_phone !== null
+        && payload.contact_phone !== '') {
+      if (typeof payload.contact_phone !== 'string') {
+        errors.push('contact_phone must be a string');
+      } else if (!payload.contact_phone.startsWith('+')) {
+        errors.push(`Phone not in international format: ${payload.contact_phone}`);
+      }
     }
 
     // Validate brand field shape -- pro_for_organization/con_for_organization
@@ -776,18 +798,28 @@ class SchemaMapper {
     checkFieldsIfPresent(doc);
   }
 
+  /**
+   * Lowercase emails in place.
+   *
+   * Runs inside mapToApiPayload, i.e. on raw agent output BEFORE the validator
+   * ever sees it -- so this was the earlier of the two throw sites and
+   * hardening only _validateLead would have left it live.
+   *
+   * Malformed entries are skipped silently here and reported by _validateLead;
+   * this function has no errors array to write to. The guarantee is that a
+   * malformed entry is never silently repaired, only left untouched.
+   */
   _standardizeContacts(payload) {
-    // Lowercase all emails
-    if (payload.contacts && Array.isArray(payload.contacts)) {
+    if (Array.isArray(payload.contacts)) {
       for (const contact of payload.contacts) {
-        if (contact.email) {
+        if (!isPlainObject(contact)) continue;
+        if (typeof contact.email === 'string') {
           contact.email = contact.email.toLowerCase();
         }
       }
     }
 
-    // Standardize main contact fields
-    if (payload.decision_maker_contact && typeof payload.decision_maker_contact === 'string') {
+    if (typeof payload.decision_maker_contact === 'string') {
       payload.decision_maker_contact = payload.decision_maker_contact.toLowerCase();
     }
   }
