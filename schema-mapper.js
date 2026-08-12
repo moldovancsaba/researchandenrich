@@ -41,6 +41,56 @@ const path = require('path');
 
 const TENANTS_PATH = path.join(__dirname, 'tenants.json');
 
+/**
+ * Identifier accepted in a URL path segment. Deliberately narrow: it permits
+ * MongoDB ObjectId hex strings and classscout's `prov-<slug>` form, and
+ * excludes `/ ? # & . %` -- every character that can alter URL structure.
+ *
+ * Encoding alone is not sufficient. An id containing those characters is
+ * malformed regardless, and accepting `%2F%2E%2E%2F` as a "valid, safely
+ * encoded" identifier would be a correct-looking mistake.
+ */
+const RECORD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+
+class InvalidIdentifierError extends Error {
+  constructor(value, reason) {
+    super(reason);
+    this.name = 'InvalidIdentifierError';
+    this.value = value;
+    this.reason = reason;
+  }
+}
+
+function assertValidId(id, action) {
+  if (id === null || id === undefined || id === '') {
+    throw new InvalidIdentifierError(id, `record id is required for action '${action}'`);
+  }
+  if (typeof id !== 'string') {
+    throw new InvalidIdentifierError(id, `record id must be a string, received ${typeof id}`);
+  }
+  if (!RECORD_ID_PATTERN.test(id)) {
+    throw new InvalidIdentifierError(id, `record id must match ${RECORD_ID_PATTERN}: '${id}'`);
+  }
+  return id;
+}
+
+/**
+ * Build an absolute endpoint URL. Path segments are percent-encoded and the
+ * query is serialised by URLSearchParams, so no caller-supplied value can
+ * introduce a separator.
+ *
+ * Query parameter order follows insertion order, which keeps output
+ * byte-identical to the previous template-literal construction.
+ */
+function buildEndpoint(base, segments, query) {
+  const normalisedBase = String(base).replace(/\/+$/, '');
+  const encodedPath = segments.map((s) => encodeURIComponent(String(s))).join('/');
+  const qs = new URLSearchParams(query).toString();
+  const url = `${normalisedBase}/${encodedPath}${qs ? `?${qs}` : ''}`;
+  new URL(url); // throws on a malformed base
+  return url;
+}
+
 class SchemaMapper {
   constructor() {
     this.tenants = this._loadTenants();
@@ -689,12 +739,22 @@ class SchemaMapper {
     switch (tenant.schemaFamily) {
       case 'sales-lead-api':
         switch (action) {
-          case 'list': return `${base}/api/leads?brand=${tenantId}&limit=1000`;
-          case 'get': return `${base}/api/leads/${id}?brand=${tenantId}`;
-          case 'post': return `${base}/api/leads?brand=${tenantId}`;
-          case 'put': return `${base}/api/leads/${id}?brand=${tenantId}`;
-          case 'health': return `${base}/api/health`;
-          case 'stats': return `${base}/api/stats`;
+          case 'list':
+            return buildEndpoint(base, ['api', 'leads'], { brand: tenantId, limit: '1000' });
+          case 'get':
+          case 'put':
+            // `id` comes from an agent-produced record assembled from web-sourced
+            // content -- the least trustworthy input in the system. An unencoded
+            // `?` here truncates the path and drops ?brand=, and
+            // salesleadgenerator's resolveBrand() defaults a missing brand to
+            // 'cogmap' -- so a seyu or dvsc write would silently land in cogmap's
+            // collection. See docs/RUNTIME_ARCHITECTURE_NOTES.md §4a.
+            return buildEndpoint(base, ['api', 'leads', assertValidId(id, action)],
+              { brand: tenantId });
+          case 'post':
+            return buildEndpoint(base, ['api', 'leads'], { brand: tenantId });
+          case 'health': return buildEndpoint(base, ['api', 'health'], {});
+          case 'stats': return buildEndpoint(base, ['api', 'stats'], {});
           default: throw new Error(`Unknown action: ${action}`);
         }
       case 'program-api':
@@ -706,9 +766,10 @@ class SchemaMapper {
         // -- 'list'/'get' throw here rather than pointing at a URL the agent
         // could call and be misled by a false-negative/false-positive.
         switch (action) {
-          case 'post': return `${base}/api/ingest`;
-          case 'put': return `${base}/api/ingest`;
-          case 'health': return `${base}/api/ingest`;
+          case 'post':
+          case 'put':
+          case 'health':
+            return buildEndpoint(base, ['api', 'ingest'], {});
           case 'list':
           case 'get':
             throw new Error(`program-api has no ingest-credential-readable '${action}' endpoint -- verify writes via the POST response itself (runtime/verifier/response-based.js), not a re-fetch`);
@@ -737,3 +798,5 @@ class SchemaMapper {
 }
 
 module.exports = SchemaMapper;
+module.exports.InvalidIdentifierError = InvalidIdentifierError;
+module.exports.RECORD_ID_PATTERN = RECORD_ID_PATTERN;
