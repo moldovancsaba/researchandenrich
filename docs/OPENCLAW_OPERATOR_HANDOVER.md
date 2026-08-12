@@ -1,13 +1,26 @@
 # OpenClaw operator ↔ repo developer handover
 
-Two sides touch this system and neither can see the other's half:
+Two sides touch this system and neither can see the other's half. The split is by
+**domain, not by repository** — the prompts live in this repo but are owned by the OpenClaw
+operator, because they are the agent's instructions, not application code.
 
-- **This repository** — prompts, schema-mapper, tenant config. Owned by the repo developer.
-- **An OpenClaw install that runs those prompts** — credentials, scheduling, agent guidance,
-  quarantine, reporting. Lives outside this repo entirely.
+| Area | Owner |
+|---|---|
+| `prompts/**` — tenant discovery/enrichment prompts, `prompts/shared/sales-lead-fields.md` | **OpenClaw operator** |
+| Loop improvements, agent guidance, learning/quarantine/reporting | **OpenClaw operator** |
+| OpenClaw install, models, scheduling, credentials, gateway config | **OpenClaw operator** |
+| `schema-mapper.js`, `runtime/**`, `scripts/**`, `app/**`, `config/**` | **repo developer** |
+| Regression gates and CI, including `scripts/verify-prompt-parity.js` | **repo developer** |
+| `tenants.json`, `apps.yaml`, `workers/**` — tenant scope, status, cadence | **repo developer**, on the owner's decision |
 
-On 2026-08-12 both sides changed the same contract on the same day without knowing it. This
-document records what changed on the operator side and how the two should stay in sync.
+Consequence worth stating plainly: **a prompt change is an operator change that lands in this
+repo.** The repo developer should not rewrite prompt content to fit code; if a prompt cannot be
+satisfied by the mapper, that is a finding to report, not a prompt to edit. Conversely the
+operator does not touch `schema-mapper.js`, the verifiers, or the Next.js app — if a prompt
+needs a field the mapper drops, that is a repo-developer change.
+
+Both still push to the same `main` under the same DoD, so either side's change must keep
+`npm test` green.
 
 ---
 
