@@ -12,6 +12,8 @@
  * `requireIngestKey` accepts `Authorization: Bearer <key>` or `X-Ingest-Key: <key>`.
  */
 
+const { parseEndpoint, buildUrl } = require('../shared/endpoint');
+
 /**
  * Verify a batch of `/api/ingest` operations from the POST response body.
  *
@@ -54,34 +56,62 @@ function verifyFromIngestResponse({ responseBody, expectedIds = [] }) {
  * @param {number} [params.expectedStatus=200]
  * @returns {Promise<object>} Health check result
  */
-async function healthCheck({ apiBase, endpoint, apiKey, expectedStatus = 200 }) {
+async function healthCheck({ apiBase, endpoint, apiKey, expectedStatus = 200, timeoutMs = 10000 }) {
   const startTime = Date.now();
-  const path = endpoint.replace(/^GET\s+/, '');
 
+  // Was a local replace(/^GET\s+/, ''), which silently fails on any non-GET
+  // prefix. Shared with list-based.js so the two cannot drift again.
+  let url;
+  let method;
   try {
-    const response = await fetch(apiBase + path, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'content-type': 'application/json',
-      },
-    });
-    const duration = Date.now() - startTime;
-
-    return {
-      healthy: response.status === expectedStatus,
-      status: response.status,
-      expectedStatus,
-      durationMs: duration,
-      error: null,
-    };
+    const parsed = parseEndpoint(endpoint);
+    method = parsed.method;
+    url = buildUrl(apiBase, parsed.path);
   } catch (err) {
-    const duration = Date.now() - startTime;
     return {
       healthy: false,
       status: 0,
       expectedStatus,
-      durationMs: duration,
+      durationMs: Date.now() - startTime,
       error: err.message,
+      failure: 'configuration',
+    };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const healthy = response.status === expectedStatus;
+    return {
+      healthy,
+      status: response.status,
+      expectedStatus,
+      durationMs: Date.now() - startTime,
+      error: healthy ? null : `expected ${expectedStatus}, received ${response.status}`,
+      failure: healthy ? null : 'unexpected-status',
+      url,
+    };
+  } catch (err) {
+    clearTimeout(timer);
+    const timedOut = err.name === 'AbortError';
+    return {
+      healthy: false,
+      status: 0,
+      expectedStatus,
+      durationMs: Date.now() - startTime,
+      error: timedOut ? `timed out after ${timeoutMs}ms` : err.message,
+      failure: timedOut ? 'timeout' : 'network',
+      url,
     };
   }
 }
