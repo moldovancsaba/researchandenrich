@@ -6,6 +6,10 @@ docs live. `README.md` has more onboarding detail, `docs/LLD.md` has module-by-m
 `docs/RUNTIME_ARCHITECTURE_NOTES.md` has the dated incident/finding history — this doc is the synthesis
 that tells you which of those to open next.
 
+> **Running it under an agent:** `docs/AGENT_RUNTIME_FINDINGS.md` records what actually
+> happened when OpenClaw drove these prompts on real hardware — credential locations,
+> per-tenant auth, model requirements, free-tier rate limits, and which runs failed.
+
 ## What this repo is
 
 Agent runtime for ContentCreator — the config/prompt/schema-mapper layer a cron-driven research agent
