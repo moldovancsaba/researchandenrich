@@ -898,6 +898,55 @@ check('a backfilled record still validates for every tenant', () => {
   }
 });
 
+
+// ---------------------------------------------------------------------------
+// The ice exception (operator dry run, 2026-08-12)
+//
+// ice is the ONE documented exception to "emit every field empty". An empty ice
+// object is rejected HTTP 400 and fails the entire write, taking the other 41
+// fields with it. These checks exist so a later well-meaning edit cannot add it
+// to the backfill -- the cost of that mistake is every record silently failing,
+// not one field being wrong.
+// ---------------------------------------------------------------------------
+
+check('ice is never backfilled, for any tenant', () => {
+  assert.ok(!('ice' in SALES_LEAD_CONTRACT_FIELDS),
+    'ice must not be in the backfill: PUT ice:{} is rejected HTTP 400 and fails the whole write');
+  for (const id of SALES_LEAD_TENANTS) {
+    assert.ok(!('ice' in mapper.mapToApiPayload(id, {})),
+      `${id} emitted an empty ice, which would fail the entire write`);
+  }
+});
+
+check('a sourced ice is passed through untouched', () => {
+  // The exception is about not INVENTING one, not about dropping a real score.
+  const scored = { impact: 8, confidence: 6, ease: 4 };
+  for (const id of SALES_LEAD_TENANTS) {
+    const out = mapper.mapToApiPayload(id, { ice: { ...scored } });
+    assert.deepStrictEqual(out.ice, scored, `${id} altered a sourced ice`);
+  }
+});
+
+check('the prompt contract still documents the ice exception', () => {
+  // If the operator ever removes the exception, this repo's exclusion becomes
+  // unjustified and must be revisited rather than silently persisting.
+  const md = require('fs').readFileSync(CONTRACT_PATH, 'utf8');
+  assert.match(md, /`ice` is the one documented exception/i,
+    'the contract no longer documents the ice exception -- re-verify before changing the mapper');
+  assert.match(md, /400/, 'the contract no longer records the observed status code');
+});
+
+check('ticketSizeEstimate IS backfilled and empty', () => {
+  // Verified safe: PUT ticketSizeEstimate:"" -> HTTP 200, server-recomputed with
+  // a fresh computedAt and unchanged values. Discarded and recomputed, not
+  // clobbered.
+  assert.strictEqual(SALES_LEAD_CONTRACT_FIELDS.ticketSizeEstimate, '');
+  for (const id of SALES_LEAD_TENANTS) {
+    const out = mapper.mapToApiPayload(id, {});
+    assert.strictEqual(out.ticketSizeEstimate, '', `${id} is missing ticketSizeEstimate`);
+  }
+});
+
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {
   console.error('FAILURES ABOVE');

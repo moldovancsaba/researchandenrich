@@ -286,6 +286,19 @@ Two real findings from running it, not visible from reading the code alone:
   introduced fresh, but not caught until this pass actually exercised it.
   Fixed in all 4 files (`prompts/{discovery,enrichment}/{cogmap,dvsc}.md`);
   `seyu.md` has no equivalent section, so nothing to fix there.
+> **Corrected 2026-08-12 — read this before the paragraph below.** The claim that
+> follows is right that `ice.ease` is discarded and recomputed, and right that a
+> record with no contacts is rejected. It is **wrong about which check rejects a
+> malformed `ice`, and about the status code**. An operator dry run on cogmap and
+> dvsc found `PUT ice:{}` returns **HTTP 400** — `{"error":"Validation failed",
+> "details":["ice.impact must be an integer between 1 and 10", "ice.confidence
+> must be an integer…"]}` — on records that **did** have real contacts. So the
+> rejection fires on `impact`/`confidence` shape validation at 400, not on the
+> `ease` quality gate at 422. Both agents worked from the 422/`ease` reading for
+> weeks; it shaped the decision to exclude `ice` from the mapper backfill, which
+> turned out to be the right call for the wrong reason. See §15 and
+> `prompts/shared/sales-lead-fields.md`.
+
 - **A lead's `ice.ease` value is not actually respected on `POST /api/leads`.**
   The submitted payload's `ice.ease` is validated for format (integer 1-10)
   but then silently discarded -- the server always recomputes `ease` itself
@@ -960,3 +973,49 @@ clobbers nor persists; it is discarded and recomputed, exactly as `ice.ease` is.
 move from `SALES_LEAD_SERVER_COMPUTED_FIELDS` into the backfill.
 
 Both records restored and verified by list, per §14.
+
+## 17. ticketSizeEstimate backfilled, ice permanently excluded -- 2026-08-12
+
+Operator dry run resolved the two fields §16 left outside the backfill. They
+split, and one of them changed the field contract's own rule.
+
+**`ticketSizeEstimate` — safe, now backfilled.** `PUT ticketSizeEstimate:""`
+returned HTTP 200 on cogmap and dvsc. The stored value came back
+server-recomputed with a fresh `computedAt` and unchanged values
+(`method: "tier_band"`) — discarded and recomputed, not clobbered. The concern
+that motivated excluding it, that an empty value would overwrite a derived one,
+was wrong. Every sales-lead-api tenant now emits 42 keys.
+
+**`ice` — rejected, and permanently excluded.** `PUT ice:{}` returned **HTTP
+400** on both tenants:
+
+```
+{"error":"Validation failed","details":[
+  "ice.impact must be an integer between 1 and 10",
+  "ice.confidence must be an integer…"]}
+```
+
+An empty `ice` fails the **entire** write and takes the other 41 fields with it,
+so this is the one field where the contract's "emit every field empty" rule
+cannot hold. The operator amended
+`prompts/shared/sales-lead-fields.md` to state the exception — score it with real
+integers 1-10, or omit the key — and re-inlined it into all six prompts. The
+mapper agrees, so the parity gate stays green.
+
+Both test records had real contacts, so the quality gate was not trivially
+short-circuited, and the rejected write did not clobber the stored `ice`.
+
+**This corrects §6, in place.** That section asserted the rejection was a **422**
+from the `ease` quality gate. It is a **400** from `impact`/`confidence` shape
+validation, and it fires even when contacts are present. `ice.ease` *is*
+discarded and recomputed, but that is not what rejects the write. Both agents
+reasoned from the wrong reading for weeks. It happened to produce the right
+decision — exclude `ice` — for the wrong reason, which is the kind of luck worth
+recording rather than quietly benefiting from.
+
+`scripts/verify-schema-mapper.js` now guards the exception in three directions:
+`ice` is never backfilled for any tenant, a **sourced** `ice` is passed through
+untouched (the rule is about not inventing one, not about dropping a real
+score), and the contract file must still document the exception — if the
+operator ever removes it, the gate fails rather than letting this repo's
+exclusion silently persist without justification.

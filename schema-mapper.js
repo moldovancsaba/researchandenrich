@@ -91,28 +91,44 @@ const SALES_LEAD_CONTRACT_FIELDS = {
   product_fit_notes: '', notes: '', priority: '',
   // Forecast
   recommended_tier: '', revenue_model: '', estimated_participants: 0,
-  estimated_annual_revenue_usd: 0, pricingByCompany: {},
+  estimated_annual_revenue_usd: 0, ticketSizeEstimate: '', pricingByCompany: {},
   // Provenance
   source: '', techSignals: [],
 };
 
 /**
- * Contract fields deliberately NOT backfilled, because salesleadgenerator
- * computes them server-side and sending an empty value risks clobbering or
- * rejecting a correct one.
+ * Contract fields deliberately NOT backfilled.
  *
- *   ticketSizeEstimate -- derived from the tenant's dealSize bands in Sales
- *     Settings (RUNTIME_ARCHITECTURE_NOTES §6: `method: "tier_band"`).
- *   ice -- `ice.ease` is validated for format and then DISCARDED, recomputed
- *     from `computeEase(body)`. A record with no real contacts was rejected 422
- *     by the quality gate regardless of the submitted value (§6).
+ * `ice` is the single documented exception to the contract's "emit every field,
+ * empty rather than omitted" rule, and it is an exception because an empty value
+ * fails the ENTIRE write -- taking the other 41 fields with it.
  *
- * The operator's 2026-08-12 dry run verified empty `recommended_tier` and
- * `revenue_model` are accepted (HTTP 200, stored ""); it explicitly did NOT
- * exercise ice.ease. These two stay omitted-if-absent until a dry run covers
- * them. Absent is the current, working behaviour; empty is the unverified one.
+ * Operator dry run, 2026-08-12, on cogmap and dvsc:
+ *   PUT ice:{} -> HTTP 400
+ *   {"error":"Validation failed","details":[
+ *     "ice.impact must be an integer between 1 and 10",
+ *     "ice.confidence must be an integer..."]}
+ *
+ * Both test records had real contacts, so the quality gate was not trivially
+ * short-circuited, and the rejected write did not clobber the stored value.
+ *
+ * This CORRECTS two claims this repo previously published in
+ * RUNTIME_ARCHITECTURE_NOTES section 6: the status is 400, not 422, and the
+ * rejection fires on `impact`/`confidence`, not on `ease`. `ice.ease` is indeed
+ * discarded and recomputed server-side, but that is not what rejects the write.
+ *
+ * Score `ice` with real integers or omit the key entirely.
+ * `prompts/shared/sales-lead-fields.md` states the same exception, so the
+ * contract and this mapper agree.
+ *
+ * `ticketSizeEstimate` was previously excluded here on the assumption that
+ * sending empty would clobber a server-derived value. The same dry run
+ * disproved that: PUT ticketSizeEstimate:"" returned HTTP 200 on both tenants
+ * and the stored value came back server-recomputed with a fresh `computedAt`
+ * and unchanged values (`method: "tier_band"`) -- discarded and recomputed, not
+ * clobbered. It is now backfilled.
  */
-const SALES_LEAD_SERVER_COMPUTED_FIELDS = ['ticketSizeEstimate', 'ice'];
+const SALES_LEAD_SERVER_COMPUTED_FIELDS = ['ice'];
 
 const SALES_LEAD_TIERS = ['essential', 'performance', 'elite', 'multiple'];
 const SALES_LEAD_REVENUE_MODELS = ['per_participant', 'revenue_share', 'hybrid'];
