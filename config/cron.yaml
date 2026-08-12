@@ -9,7 +9,7 @@ schedule:
     app: salesleadgenerator
     operation: discovery
     prompt: prompts/discovery/cogmap.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: true
     timeoutMs: 300000
@@ -22,7 +22,7 @@ schedule:
     app: salesleadgenerator
     operation: enrichment
     prompt: prompts/enrichment/cogmap.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: true
     timeoutMs: 300000
@@ -35,7 +35,7 @@ schedule:
     app: salesleadgenerator
     operation: discovery
     prompt: prompts/discovery/seyu.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: true
     timeoutMs: 300000
@@ -48,7 +48,7 @@ schedule:
     app: salesleadgenerator
     operation: enrichment
     prompt: prompts/enrichment/seyu.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: true
     timeoutMs: 300000
@@ -61,7 +61,7 @@ schedule:
     app: salesleadgenerator
     operation: discovery
     prompt: prompts/discovery/dvsc.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: false
     timeoutMs: 300000
@@ -74,7 +74,7 @@ schedule:
     app: salesleadgenerator
     operation: enrichment
     prompt: prompts/enrichment/dvsc.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: false
     timeoutMs: 300000
@@ -87,7 +87,7 @@ schedule:
     app: classscout
     operation: discovery
     prompt: prompts/discovery/classscout.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: true
     timeoutMs: 300000
@@ -100,7 +100,7 @@ schedule:
     app: classscout
     operation: enrichment
     prompt: prompts/enrichment/classscout.md
-    cron: "*/45 * * * *"
+    cron: "0 */1 * * *"
     tz: "Europe/Budapest"
     enabled: true
     timeoutMs: 300000
