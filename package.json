@@ -12,6 +12,7 @@
     "@mantine/core": "^7.17.8",
     "@mantine/hooks": "^7.17.8",
     "@tailwindcss/vite": "^4.3.3",
+    "js-yaml": "^5.2.3",
     "mongodb": "^7.5.0",
     "next": "14.2.35",
     "react": "^18.3.0",
