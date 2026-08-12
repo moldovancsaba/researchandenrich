@@ -289,6 +289,81 @@ check('verifyFromIngestResponse confirms a batch when every expected result came
   assert.strictEqual(result.confirmed, true);
 });
 
+// --- program-api (classscout) meetupGroup entity kind ---
+// A genuinely different resource from Provider, not a variant of it -- see
+// schema-mapper.js's _mapClassScoutMeetup docblock for the field differences
+// (closed groupType/single ageRange/cadence enums, optional coverImageUrl,
+// meetup- id prefix).
+const sampleMeetup = {
+  id: 'meetup-park-slope-new-parents-a1b2c3',
+  name: 'Park Slope New Parents',
+  borough: 'Brooklyn',
+  neighborhood: 'Park Slope',
+  groupType: 'New Parents',
+  ageRange: '0–2',
+  cadence: 'Weekly',
+  instagram: '@parkslopenewparents',
+  website: 'https://parkslopenewparents.example.com',
+  description: 'A weekly meetup for new parents in Park Slope to connect and share support.',
+  initials: 'PS',
+  icon: 'stroller',
+  palette: 'teal',
+};
+
+check("mapToApiPayload('classscout', meetup, 'post', 'meetupGroup') wraps a meetupGroups.upsertMany operation", () => {
+  const payload = mapper.mapToApiPayload('classscout', sampleMeetup, 'post', 'meetupGroup');
+  assert.strictEqual(payload.operations.length, 1);
+  const op = payload.operations[0];
+  assert.strictEqual(op.resource, 'meetupGroups');
+  assert.strictEqual(op.action, 'upsertMany');
+  assert.strictEqual(op.documents[0].id, sampleMeetup.id);
+  assert.strictEqual(op.documents[0].coverImageUrl, undefined, 'coverImageUrl must be omitted, not empty-string, when not supplied');
+});
+
+check("mapToApiPayload('classscout', {...}, 'put', 'meetupGroup') wraps a meetupGroup.patch operation", () => {
+  const payload = mapper.mapToApiPayload('classscout', { id: sampleMeetup.id, cadence: 'Monthly' }, 'put', 'meetupGroup');
+  const op = payload.operations[0];
+  assert.strictEqual(op.resource, 'meetupGroup');
+  assert.strictEqual(op.action, 'patch');
+  assert.strictEqual(op.id, sampleMeetup.id);
+  assert.deepStrictEqual(op.patch, { cadence: 'Monthly' });
+});
+
+check("validateForTenant('classscout') accepts a valid mapped meetup create payload", () => {
+  const payload = mapper.mapToApiPayload('classscout', sampleMeetup, 'post', 'meetupGroup');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.deepStrictEqual(result.errors, []);
+});
+
+check("validateForTenant('classscout') rejects a meetup create missing groupType/ageRange/cadence", () => {
+  const { groupType, ageRange, cadence, ...missing } = sampleMeetup;
+  const payload = mapper.mapToApiPayload('classscout', missing, 'post', 'meetupGroup');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('groupType is required')), result.errors.join('; '));
+  assert.ok(result.errors.some((e) => e.includes('ageRange is required')), result.errors.join('; '));
+  assert.ok(result.errors.some((e) => e.includes('cadence is required')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') rejects a meetup ageRange value not in its own closed vocabulary (regression: must not reuse Provider's ageRanges list)", () => {
+  const wrongAge = { ...sampleMeetup, ageRange: '3–5 years' }; // not a real value in either vocabulary
+  const payload = mapper.mapToApiPayload('classscout', wrongAge, 'post', 'meetupGroup');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('ageRange must be one of')), result.errors.join('; '));
+});
+
+check("validateForTenant('classscout') accepts a meetup with NO coverImageUrl at all (regression: unlike Provider's image, this field is genuinely optional)", () => {
+  const payload = mapper.mapToApiPayload('classscout', sampleMeetup, 'post', 'meetupGroup');
+  assert.strictEqual('coverImageUrl' in payload.operations[0].documents[0], false);
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.deepStrictEqual(result.errors, []);
+});
+
+check("validateForTenant('classscout') rejects a meetup coverImageUrl that isn't an ImgBB URL when one IS supplied", () => {
+  const payload = mapper.mapToApiPayload('classscout', { ...sampleMeetup, coverImageUrl: 'https://example.com/photo.jpg' }, 'post', 'meetupGroup');
+  const result = mapper.validateForTenant('classscout', payload);
+  assert.ok(result.errors.some((e) => e.includes('coverImageUrl must be empty or an https ImgBB URL')), result.errors.join('; '));
+});
+
 console.log(`\n${passed} check(s) passed.`);
 if (process.exitCode) {
   console.error('FAILURES ABOVE');

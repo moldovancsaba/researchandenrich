@@ -83,9 +83,13 @@ class SchemaMapper {
    * @param {'post'|'put'} [action='post'] - 'post' for discovery/create, 'put' for
    *   enrichment/patch. Only consulted by program-api tenants (see class docblock);
    *   sales-lead-api ignores it.
+   * @param {'provider'|'meetupGroup'} [entityKind='provider'] - which classscout
+   *   resource this record maps to. Only consulted by program-api tenants -- a
+   *   sales-lead-api tenant models exactly one entity kind (a lead), so there's
+   *   nothing to disambiguate there.
    * @returns {object} tenant-specific payload ready to send as the POST/PUT body
    */
-  mapToApiPayload(tenantId, genericRecord, action = 'post') {
+  mapToApiPayload(tenantId, genericRecord, action = 'post', entityKind = 'provider') {
     const tenant = this.getTenant(tenantId);
     const payload = { ...genericRecord };
 
@@ -99,7 +103,9 @@ class SchemaMapper {
       case 'sales-lead-api':
         return this._mapSalesLeadApi(tenant, payload);
       case 'program-api':
-        return this._mapClassScout(tenant, payload, action);
+        return entityKind === 'meetupGroup'
+          ? this._mapClassScoutMeetup(tenant, payload, action)
+          : this._mapClassScout(tenant, payload, action);
       default:
         throw new Error(`Tenant '${tenantId}' has no (or an unrecognized) schemaFamily in tenants.json: ${tenant.schemaFamily}`);
     }
@@ -277,6 +283,60 @@ class SchemaMapper {
   }
 
   /**
+   * classscout's `MeetupGroup` shape (`curatedMeetupSchema` in classscout's
+   * `src/lib/meetupSchema.ts`) -- a genuinely different, simpler resource than
+   * Provider, not a variant of it. Notably:
+   *   - `groupType` is a closed 5-value enum (Parent Meetup/Mom Group/Playdate
+   *     Group/New Parents/Neighborhood Families) -- there is no `activityTypes`
+   *     free-text field on this resource at all.
+   *   - `ageRange` is a SINGLE value from its own closed 8-value vocabulary
+   *     (0–2/0–3/0–5/0–6/2–5/2–8/3–5/All ages, en dashes) -- not an array, and
+   *     not the same vocabulary as Provider's `ageRanges`.
+   *   - `cadence` is a closed 4-value enum (Weekly/Monthly/Weekend/Pop-up).
+   *   - `coverImageUrl` is OPTIONAL -- unlike Provider's `image`, there is no
+   *     hard image-sourcing requirement for a meetup group to be written.
+   *   - `id` must match `/^meetup-[a-z0-9-]+$/` (not `prov-`).
+   *   - `icon`/`palette` are closed display-only enums with no natural
+   *     research-derived value -- see `_validateMeetup` for the recommended
+   *     defaults rather than guessing.
+   */
+  _mapClassScoutMeetup(tenant, payload, action = 'post') {
+    if (action === 'put') {
+      const { id, ...patch } = payload;
+      return {
+        operations: [
+          { resource: 'meetupGroup', action: 'patch', id, patch },
+        ],
+      };
+    }
+
+    const meetup = {
+      id: payload.id,
+      name: payload.name,
+      borough: payload.borough,
+      neighborhood: payload.neighborhood,
+      groupType: payload.groupType,
+      ageRange: payload.ageRange,
+      cadence: payload.cadence,
+      instagram: payload.instagram || '',
+      website: payload.website,
+      description: payload.description,
+      initials: payload.initials,
+      icon: payload.icon,
+      palette: payload.palette,
+    };
+    if (payload.coverImageUrl) {
+      meetup.coverImageUrl = payload.coverImageUrl;
+    }
+
+    return {
+      operations: [
+        { resource: 'meetupGroups', action: 'upsertMany', documents: [meetup] },
+      ],
+    };
+  }
+
+  /**
    * Validate a payload for a specific tenant before sending to API.
    * Returns { valid: boolean, errors: string[] }
    *
@@ -403,6 +463,11 @@ class SchemaMapper {
       return;
     }
 
+    if (op.resource === 'meetupGroups' || op.resource === 'meetupGroup') {
+      this._validateMeetup(op, errors);
+      return;
+    }
+
     if (op.action === 'patch') {
       const doc = op.patch || {};
       if (!op.id || typeof op.id !== 'string' || !/^prov-[a-z0-9-]+$/.test(op.id)) {
@@ -496,6 +561,96 @@ class SchemaMapper {
     if (doc.image !== undefined && !/^https:\/\/(i\.)?ibb\.co\//.test(doc.image)) {
       errors.push(`image must be an https ImgBB URL (i.ibb.co): ${doc.image}`);
     }
+  }
+
+  /**
+   * Validates a `_mapClassScoutMeetup`-produced ingest envelope against
+   * classscout's real MeetupGroup contract (`curatedMeetupSchema`, classscout's
+   * `src/lib/meetupSchema.ts`). A meetup group is a materially simpler, distinct
+   * resource from Provider -- see `_mapClassScoutMeetup`'s docblock for the
+   * field-vocabulary differences (closed `groupType`/single `ageRange`/`cadence`
+   * enums, optional `coverImageUrl`, `meetup-` id prefix).
+   */
+  _validateMeetup(op, errors) {
+    const GROUP_TYPES = ['Parent Meetup', 'Mom Group', 'Playdate Group', 'New Parents', 'Neighborhood Families'];
+    const AGE_RANGES = ['0–2', '0–3', '0–5', '0–6', '2–5', '2–8', '3–5', 'All ages'];
+    const CADENCES = ['Weekly', 'Monthly', 'Weekend', 'Pop-up'];
+    const ICONS = ['stroller', 'skyline', 'heart', 'coffee', 'playground', 'community'];
+    const PALETTES = ['teal', 'orange', 'beige', 'charcoal'];
+
+    const checkFieldsIfPresent = (doc) => {
+      if (doc.groupType !== undefined && !GROUP_TYPES.includes(doc.groupType)) {
+        errors.push(`groupType must be one of: ${GROUP_TYPES.join(', ')}`);
+      }
+      if (doc.ageRange !== undefined && !AGE_RANGES.includes(doc.ageRange)) {
+        errors.push(`ageRange must be one of: ${AGE_RANGES.join(', ')} (a single value, not an array -- different vocabulary than Provider's ageRanges)`);
+      }
+      if (doc.cadence !== undefined && !CADENCES.includes(doc.cadence)) {
+        errors.push(`cadence must be one of: ${CADENCES.join(', ')}`);
+      }
+      if (doc.icon !== undefined && !ICONS.includes(doc.icon)) {
+        errors.push(`icon must be one of: ${ICONS.join(', ')}`);
+      }
+      if (doc.palette !== undefined && !PALETTES.includes(doc.palette)) {
+        errors.push(`palette must be one of: ${PALETTES.join(', ')}`);
+      }
+      if (doc.borough !== undefined && (typeof doc.borough !== 'string' || doc.borough.trim() === '')) {
+        errors.push('borough must be a non-empty string');
+      }
+      // coverImageUrl is OPTIONAL on this resource -- an omitted key is fine.
+      // An explicitly-present, non-empty value must still be a real ImgBB URL,
+      // same anti-placeholder reasoning as Provider's image field.
+      if (doc.coverImageUrl !== undefined && doc.coverImageUrl !== '' && !/^https:\/\/(i\.)?ibb\.co\//.test(doc.coverImageUrl)) {
+        errors.push(`coverImageUrl must be empty or an https ImgBB URL (i.ibb.co): ${doc.coverImageUrl}`);
+      }
+    };
+
+    if (op.action === 'patch') {
+      if (!op.id || typeof op.id !== 'string' || !/^meetup-[a-z0-9-]+$/.test(op.id)) {
+        errors.push(`patch id must match /^meetup-[a-z0-9-]+$/: ${op.id}`);
+      }
+      checkFieldsIfPresent(op.patch || {});
+      return;
+    }
+
+    // create (meetupGroups.upsertMany)
+    const doc = (op.documents && op.documents[0]) || {};
+    if (!doc.id || typeof doc.id !== 'string' || !/^meetup-[a-z0-9-]+$/.test(doc.id)) {
+      errors.push(`id must match /^meetup-[a-z0-9-]+$/: ${doc.id}`);
+    }
+    if (!doc.name || (typeof doc.name === 'string' && doc.name.trim() === '')) {
+      errors.push('name is required');
+    }
+    if (!doc.neighborhood || (typeof doc.neighborhood === 'string' && doc.neighborhood.trim() === '')) {
+      errors.push('neighborhood is required');
+    }
+    if (!doc.groupType) {
+      errors.push(`groupType is required and must be one of: ${GROUP_TYPES.join(', ')}`);
+    }
+    if (!doc.ageRange) {
+      errors.push(`ageRange is required and must be one of: ${AGE_RANGES.join(', ')}`);
+    }
+    if (!doc.cadence) {
+      errors.push(`cadence is required and must be one of: ${CADENCES.join(', ')}`);
+    }
+    if (!doc.icon) {
+      errors.push(`icon is required and must be one of: ${ICONS.join(', ')}`);
+    }
+    if (!doc.palette) {
+      errors.push(`palette is required and must be one of: ${PALETTES.join(', ')}`);
+    }
+    if (!doc.initials || (typeof doc.initials === 'string' && doc.initials.trim() === '')) {
+      errors.push('initials is required');
+    }
+    if (!doc.description || doc.description.length < 20) {
+      errors.push('description must be at least 20 characters');
+    }
+    if (!doc.website) {
+      errors.push('website is required and must be a valid URL');
+    } else {
+      try { new URL(doc.website); } catch { errors.push(`website must be a valid URL: ${doc.website}`); }
+    }
+    checkFieldsIfPresent(doc);
   }
 
   _standardizeContacts(payload) {

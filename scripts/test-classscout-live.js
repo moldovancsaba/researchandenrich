@@ -39,7 +39,8 @@ function parseArgs() {
   const args = process.argv.slice(2);
   const mode = (args.find((a) => a.startsWith('--mode=')) || '--mode=health').split('=')[1];
   const confirm = args.includes('--confirm');
-  return { mode, confirm };
+  const entity = (args.find((a) => a.startsWith('--entity=')) || '--entity=provider').split('=')[1];
+  return { mode, confirm, entity };
 }
 
 function requireEnv(name) {
@@ -230,8 +231,92 @@ async function runLive(mapper, ingestKey, imgbbKey) {
   process.exitCode = createOk && (patchOk || !createOk) ? 0 : 1;
 }
 
+const MEETUP_TEST_ID = 'meetup-researchandenrich-live-test';
+
+function buildSampleMeetupRecord() {
+  return {
+    id: MEETUP_TEST_ID,
+    name: 'RESEARCHANDENRICH LIVE TEST MEETUP -- SAFE TO DELETE',
+    borough: 'Manhattan',
+    neighborhood: 'Test Neighborhood',
+    groupType: 'New Parents',
+    ageRange: '0–2',
+    cadence: 'Weekly',
+    instagram: '',
+    website: 'https://example.com',
+    description: 'Automated integration test meetup record for researchandenrich. Safe to delete.',
+    initials: 'RT',
+    icon: 'stroller',
+    palette: 'teal',
+    // coverImageUrl deliberately omitted -- it's optional on this resource,
+    // unlike Provider's image, so this also exercises that no ImgBB upload
+    // step is required to create a valid meetup group.
+  };
+}
+
+async function runLiveMeetup(mapper, ingestKey) {
+  console.log('=== LIVE meetupGroup integration test against classscout.ai (real writes, self-cleaning) ===\n');
+
+  const healthy = await healthCheck(ingestKey);
+  if (!healthy) {
+    console.log('\nAborting -- fix the auth issue above before the write steps can be meaningfully tested.');
+    process.exit(1);
+  }
+
+  console.log('\n--- Step: create (meetupGroup, no image upload needed) ---');
+  const createPayload = mapper.mapToApiPayload('classscout', buildSampleMeetupRecord(), 'post', 'meetupGroup');
+  const createValidation = mapper.validateForTenant('classscout', createPayload);
+  if (!createValidation.valid) {
+    console.log('  FAIL  Local validation rejected the payload before sending:');
+    console.log('  ' + createValidation.errors.join('\n  '));
+    process.exit(1);
+  }
+  const createResult = await ingestRequest('POST', createPayload, ingestKey);
+  console.log(`  HTTP ${createResult.status}: ${JSON.stringify(createResult.body)}`);
+  const createOk = createResult.ok && createResult.body?.results?.[0]?.ok === true;
+  console.log(`  ${createOk ? 'ok  create succeeded' : 'FAIL  create failed'}`);
+
+  let patchOk = false;
+  if (createOk) {
+    console.log('\n--- Step: patch ---');
+    const patchPayload = mapper.mapToApiPayload('classscout', { id: MEETUP_TEST_ID, cadence: 'Monthly' }, 'put', 'meetupGroup');
+    const patchValidation = mapper.validateForTenant('classscout', patchPayload);
+    if (!patchValidation.valid) {
+      console.log('  FAIL  Local validation rejected the patch before sending:');
+      console.log('  ' + patchValidation.errors.join('\n  '));
+    } else {
+      const patchResult = await ingestRequest('POST', patchPayload, ingestKey);
+      console.log(`  HTTP ${patchResult.status}: ${JSON.stringify(patchResult.body)}`);
+      patchOk = patchResult.ok && patchResult.body?.results?.[0]?.ok === true;
+      console.log(`  ${patchOk ? 'ok  patch succeeded' : 'FAIL  patch failed'}`);
+    }
+  } else {
+    console.log('\n--- Step: patch --- SKIPPED (create failed, nothing to patch)');
+  }
+
+  console.log('\n--- Step: cleanup (delete test record) ---');
+  if (createOk) {
+    const deleteResult = await ingestRequest(
+      'POST',
+      { operations: [{ resource: 'meetupGroup', action: 'delete', id: MEETUP_TEST_ID }] },
+      ingestKey,
+    );
+    console.log(`  HTTP ${deleteResult.status}: ${JSON.stringify(deleteResult.body)}`);
+    const deleteOk = deleteResult.ok && deleteResult.body?.results?.[0]?.ok === true;
+    console.log(`  ${deleteOk ? 'ok  test record deleted' : 'FAIL  cleanup delete failed -- ' + MEETUP_TEST_ID + ' may still be live, delete it manually'}`);
+  } else {
+    console.log('  SKIPPED (nothing was created).');
+  }
+
+  console.log('\n=== Summary ===');
+  console.log(`  health check: ok`);
+  console.log(`  create:       ${createOk ? 'ok' : 'FAIL'}`);
+  console.log(`  patch:        ${createOk ? (patchOk ? 'ok' : 'FAIL') : 'skipped'}`);
+  process.exitCode = createOk && (patchOk || !createOk) ? 0 : 1;
+}
+
 async function main() {
-  const { mode, confirm } = parseArgs();
+  const { mode, confirm, entity } = parseArgs();
   const mapper = new SchemaMapper();
 
   if (mode === 'dry-run') {
@@ -255,6 +340,10 @@ async function main() {
           '  node scripts/test-classscout-live.js --mode=live --confirm',
       );
       process.exit(1);
+    }
+    if (entity === 'meetupGroup') {
+      await runLiveMeetup(mapper, ingestKey);
+      return;
     }
     const imgbbKey = requireEnv('IMGBB_API_KEY');
     await runLive(mapper, ingestKey, imgbbKey);
