@@ -137,12 +137,211 @@ new schema family) an `apps.yaml` app, add `workers/<id>/{discovery,enrichment}.
 out-of-band), ship it **paused** (`status: "paused"`, both `enabled: false`) until a human makes an
 explicit go-live decision, then `node config/cron-generator.js` to regenerate `config/cron.yaml`.
 
-## What's actually open right now (check GitHub Issues for current state — this is a snapshot)
+## STATE AS OF 2026-08-13 — read this section first
 
-As of 2026-08-12: **#9** (credential rotation, blocked on operator Atlas/Vercel access), **#10** (history
-purge, tooling ready, blocked on #9 then on running it outside this sandbox's restriction), and **#30**
-(Next.js 16 migration to clear the remaining PostCSS advisories — a real breaking-change migration, not a
-routine bump) are the real outstanding work. #3, #6, #7, #8, #11, #14, #22, #29 are all closed —
-#11/#14/#22/#29 specifically as a direct, deliberate consequence of retiring `/admin` (they were about a
-surface that no longer exists), not
-because their underlying concerns were separately fixed.
+Written under time pressure ahead of a possible system crash. Everything below is
+verified against the working tree at the commit named, not remembered.
+
+### Where we are
+
+`main` @ `6195129`, in sync with origin, working tree clean, CI green.
+`main` is the **only** branch — `dev`/`preview` do not exist. Four stale branches
+were archived as tags on 2026-08-12 (`archive/dev-2026-08-12`,
+`archive/lld-and-readme-fixes-2026-08-02-2026-08-12`,
+`archive/dvsc-tenant-plus-claude-support-2026-08-12`,
+`archive/dehardcode-tenant-schema-mapper-2026-08-12`) and deleted. Recover any
+with `git checkout <tag>`.
+
+`npm test` — **249 checks**, all green:
+
+| suite | checks | covers |
+|---|---|---|
+| `verify-schema-mapper.js` | 151 | mapping, validation, field contract, endpoint construction |
+| `verify-cron-generator.js` | 26 | YAML parse fidelity, schedule resolution |
+| `verify-runtime.js` | 23 | verifier URLs, failure classification |
+| `verify-prompt-parity.js` | — | the three sales-lead prompts share one field contract |
+| `verify-runners.js` | 6 | runner scripts resolve, no hardcoded API paths |
+| search-router | 42 | routing, circuit breaker, rate limiter, fetch bounds |
+| `cron-generator --check` | — | Definition-of-Done item 2, mechanically enforced |
+
+CI runs all of it on every push (`.github/workflows/verify.yml`) plus typecheck,
+build and `npm run audit`.
+
+### Who owns what — READ BEFORE CHANGING ANYTHING
+
+`docs/AGENT_COLLABORATION_CONTRACT.md` is binding. Two agents write to this repo:
+
+- **OpenClaw operator agent** — the *main* agent, owns the running system:
+  `prompts/**` (including `prompts/shared/` and `RUNTIME_PATHS.md`), scheduling,
+  models, credentials, quarantine, the learning loop. **Only the operator writes
+  to production APIs.**
+- **Repo developer agent** — supports it, owns application code:
+  `schema-mapper.js`, `runtime/**`, `scripts/**`, `lib/**`, gates, CI.
+  `tenants.json`/`apps.yaml`/`workers/**` are the repo developer's *on the human
+  owner's explicit decision only*.
+
+A prompt the mapper cannot satisfy is a **finding to report**, never a prompt to
+rewrite. A field the mapper drops is a **repo change**, never a prompt workaround.
+Neither agent changes tenant `status`/`enabled` without an explicit human
+instruction naming the tenant.
+
+### The system in one paragraph
+
+This repo is a **service that delivers research into two external applications**,
+each its own repo and deployment: `salesleadgenerator`
+(`https://salesleadgenerator.vercel.app`, tenants cogmap/seyu/dvsc) and
+`classscout` (`https://classscout.ai`, tenant classscout). No source from either
+lives here; their schemas are **mirrored, not imported**, so `npm ci && npm test`
+passes standalone. The repo holds prompts, the schema mapper, and tenant config.
+It does not run the pipeline — an OpenClaw install on the same machine does.
+
+### How OpenClaw actually reaches this repo
+
+```
+~/.openclaw/workspace  ->  /Users/Shared/Projects/OpenClaw/.openclaw/workspace
+   .env.cogmap / .env.seyu / .env.dvsc / .env.classscout   <- CREDENTIALS LIVE HERE
+   JOBS.md                                                  <- the job definitions
+   Agents/contentcreator/{prompts,search-router,tenants.json} -> SYMLINKS into this repo
+```
+
+**Consequences that surprise people:**
+
+- Prompt and `tenants.json` edits take effect in the live runtime **on save**.
+  No deploy, no pull, no staging boundary.
+- `config/cron.yaml` is **not** symlinked and, as far as anyone has established,
+  **nothing reads it**. Jobs are prose in the operator's `JOBS.md`. Do not assume
+  editing `cron.yaml` changes what runs.
+- The directory is named `contentcreator` — the Vercel project name, not this
+  repo's name. That is why old absolute paths looked like they pointed elsewhere.
+
+Path contract (`prompts/RUNTIME_PATHS.md`), adopted by the operator:
+
+```
+RAE_ROOT    = /Users/Shared/Projects/researchandenrich
+RAE_ENV_DIR = /Users/Shared/Projects/OpenClaw/.openclaw/workspace
+```
+
+Set machine-wide via `launchctl setenv` and a LaunchAgent — the gateway runs
+under `launchd` and never sees a shell profile. **Env files deliberately live
+outside the clone.**
+
+### Credentials — current truth
+
+| tenant | variable | note |
+|---|---|---|
+| cogmap, seyu, dvsc | `SLG_API_KEY` | **one shared key for all three** |
+| classscout | `INGEST_API_KEY`, `IMGBB_API_KEY` | from the classscout Vercel project |
+
+`SEYU_API_KEY` **does not exist** as a distinct secret and has been removed. seyu
+is the same salesleadgenerator client as cogmap and dvsc. Two published claims to
+the contrary were corrected on 2026-08-12.
+
+Auth differs by target: sales-lead-api uses `x-api-key` with `?brand=<tenantId>`;
+classscout uses `Authorization: Bearer`. **A 401 is usually the wrong header, not
+a bad key.**
+
+### The sales-lead field contract — the core invariant
+
+`prompts/shared/sales-lead-fields.md` (operator-owned) defines one field set for
+cogmap/seyu/dvsc, inlined verbatim into all six prompts between
+`<!-- shared:sales-lead-fields start/end -->` markers. **Never edit the block
+inside a tenant file** — edit the shared file and re-inline.
+
+`_mapSalesLeadApi` backfills that contract so every tenant emits an identical
+42-key payload regardless of what the agent sourced. Only *absent* keys are
+filled; a sourced value, including a deliberately empty one, is never overwritten.
+
+Three field behaviours, and **conflating them is how the wrong handling reaches
+the wrong field**:
+
+| category | behaviour | handling |
+|---|---|---|
+| backfilled | empty accepted and stored | emit empty |
+| `SALES_LEAD_REJECT_IF_EMPTY_FIELDS` — `ice` | empty fails the **entire** write (HTTP 400) | omit unless really scored |
+| `SALES_LEAD_SUPERSEDED_FIELDS` — `contact_phone`, `decision_maker_{name,title,contact}` | ignored regardless of value; `contacts[]` carries the data | emit, but **exclude from parity measurement** |
+
+Gates enforce all of it: every contract field must be backfilled or categorised,
+the mapper may not backfill anything the contract lacks, `ice` may never be
+backfilled, and the superseding carrier (`contacts`) must exist.
+
+### Verified against production (operator, 2026-08-13)
+
+- Backfill reaches production: one cogmap record 36 → 45 keys, nine
+  previously-absent fields stored as `""`/`[]`, nothing stripped.
+- Batch of 25 cogmap DRAFT records: 25/25 updated, 0 skipped, 0 errors.
+- `ice` scored on 25/25, 2290/2290 tenant-wide. **Untested on seyu/dvsc.**
+- No cross-tenant contamination on any of the three.
+- **Tenant-wide numbers have NOT moved** (`sportCode` 90%, `contactEmails` 5%) —
+  only 25 of 2290 records rewritten. *The mechanism is proven; the backlog is not
+  processed.*
+
+### Rules that exist because something went wrong
+
+- **Verify by list, never by GET-by-id.** After a *correct* restore, GET-by-id
+  returned `null` for two fields the list endpoint showed correctly. The write
+  was fine; GET-by-id lied. A retry loop driven by it would duplicate production
+  records. This is why `runtime/verifier/list-based.js` exists.
+- **`salesleadgenerator` has no delete endpoint.** A test POST is **permanent**.
+  Use a reversible PUT on a DRAFT record: capture the prior value, restore,
+  verify by list.
+- **A test whose inputs are all empty cannot distinguish "ignored" from "stored
+  as empty".** That conflation produced a wrong published conclusion for a day.
+- **Quarantine:** the operator holds records matching forbidden-content terms.
+  Deliberately over-inclusive. A held record is **held, not missing** — never
+  chase its absence as a defect, and **no agent releases one**; clearing is a
+  human act.
+- `*/45 * * * *` never meant "every 45 minutes" — it fired at :00 and :45. All
+  workers moved to hourly (`0 */1 * * *`) on 2026-08-12.
+
+### OPEN — what to do next
+
+**Blocked on the human owner:**
+
+1. **Exposed credentials (#9).** Live Atlas credentials and `SLG_API_KEY` are in
+   git history and in `HEAD` (`.env.cogmap`, `.env.cogmap.bak`, `.env.vercel`,
+   `.env.check`, `.env.prod`) in a **public** repo since 2026-07-26. The owner
+   has elected to **keep the current credentials in use for now**. Rotation is
+   the only action that closes it; nothing in this repo can.
+2. **History purge (#10)** is *correctly* blocked on #9 —
+   `scripts/purge-history.sh` refuses to run while the credentials are live.
+   Purging first would destroy the audit trail without closing the exposure.
+3. **Vercel access.** The CLI session reaches team `narimato` only; the
+   `contentcreator`/`salesleadgenerator` projects live under the `moldovan` team
+   and return 403. Likely SAML/SSO needing a fresh per-team `vercel login`.
+
+**Repo developer, ready to do:**
+
+4. **Process the backlog** — 2265 of 2290 cogmap records still unrewritten. The
+   runner works; this is throughput, not engineering.
+5. **`ice` on seyu/dvsc** is untested. If either omits it often, those records
+   write fine but carry **no ICE at all**.
+6. **Proposed, not shipped: fold flat contact scalars into `contacts[]`.** Would
+   make data loss structurally impossible, matching how omission was handled.
+   Held back because merge semantics are a judgement call — if `contacts[]`
+   already holds that person, folding **duplicates them in a live catalogue**.
+   Needs an operator dry-run on a DRAFT record that already has a contact.
+7. **Prompt structure still diverges** — cogmap 456 lines/19 sections, seyu
+   162/15, dvsc 359/18, few shared section names, and cogmap's file contains
+   sections *titled for seyu*. The field contract is unified; the documents
+   driving it are not. Operator-owned.
+8. `next` carries one accepted high-severity advisory; only `next@16` fixes it.
+   Baselined in `scripts/audit-gate.js` with a removal condition.
+
+### If you are picking this up cold
+
+```bash
+cd /Users/Shared/Projects/researchandenrich
+git fetch origin main && git log --oneline HEAD..origin/main   # ALWAYS first
+npm ci && npm test                                              # must be green
+```
+
+Then read, in order: `docs/AGENT_COLLABORATION_CONTRACT.md` (who owns what),
+`CLAUDE.md` (branch policy, Definition of Done, the tenant-status rule, the
+AI-attribution policy), `docs/OPENCLAW_OPERATOR_HANDOVER.md` (the operator half),
+`docs/RUNTIME_ARCHITECTURE_NOTES.md` (28 dated findings — §20 is the most recent
+and the most instructive about how both agents got something wrong).
+
+**Both agents have shipped confident, wrong claims that were caught by
+measurement rather than review.** Measure before asserting. When a published
+claim turns out wrong, correct it in the repo where it was published, not only in
+conversation.
