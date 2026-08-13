@@ -368,6 +368,61 @@ export const ENGINES = {
     cacheTtlMs: 10 * 60 * 1000,
     parseResult: (bodyText) => parseYacy(bodyText, 'yacyGlobal'),
   },
+
+  // --- Owner-approved 2026-08-13. Unlike the nine above, these DO require
+  // credentials, which the source document's keyless criterion excludes. Each is
+  // gated on its env var, so a deployment without keys keeps the original
+  // keyless behaviour and never routes to them.
+  searxng: {
+    id: 'searxng', label: 'SearXNG (self-hosted meta-search)', type: 'rest',
+    verified: 'requires-local-deployment', attribution: 'Results via SearXNG', method: 'GET',
+    enabled: (opts = {}) => Boolean(opts.baseUrl || process.env.SEARXNG_URL),
+    buildUrl: (query, opts = {}) => {
+      const base = (opts.baseUrl || process.env.SEARXNG_URL || '').replace(/\/$/, '');
+      if (!base) throw Object.assign(new Error('searxng baseUrl not configured'), { type: 'not_configured' });
+      return `${base}/search?${new URLSearchParams({ q: query, format: 'json' }).toString()}`;
+    },
+    rateLimit: { kind: 'minInterval', minIntervalMs: 500 },
+    timeoutMs: 10000, retries: 1, cacheTtlMs: 30 * 60 * 1000,
+    parseResult: (bodyText) => (JSON.parse(bodyText).results || []).map((item, i) => makeResult({
+      url: item.url, title: item.title, snippet: item.content, engine: 'searxng', rank: i + 1,
+    })),
+  },
+  serpapi: {
+    id: 'serpapi', label: 'SerpAPI (Google SERP)', type: 'rest',
+    verified: 'live-verified-2026-08-13', attribution: 'Results via SerpAPI', method: 'GET',
+    enabled: () => Boolean(process.env.SERPAPI_KEY),
+    buildUrl: (query, opts = {}) => {
+      if (!process.env.SERPAPI_KEY) throw Object.assign(new Error('SERPAPI_KEY not set'), { type: 'not_configured' });
+      return `https://serpapi.com/search.json?${new URLSearchParams({
+        q: query, api_key: process.env.SERPAPI_KEY, num: String(opts.maxResults || 10) }).toString()}`;
+    },
+    rateLimit: { kind: 'minInterval', minIntervalMs: 1200 },
+    timeoutMs: 15000, retries: 1, cacheTtlMs: 60 * 60 * 1000,
+    parseResult: (bodyText) => (JSON.parse(bodyText).organic_results || []).map((item, i) => makeResult({
+      url: item.link, title: item.title, snippet: item.snippet, engine: 'serpapi', rank: item.position || i + 1,
+    })),
+  },
+  yelp: {
+    id: 'yelp', label: 'Yelp Fusion (local business)', type: 'rest',
+    verified: 'live-verified-2026-08-13', attribution: 'Data via Yelp Fusion', method: 'GET',
+    enabled: () => Boolean(process.env.YELP_API_KEY),
+    headers: () => ({ Authorization: `Bearer ${process.env.YELP_API_KEY || ''}` }),
+    buildUrl: (query, opts = {}) => {
+      if (!process.env.YELP_API_KEY) throw Object.assign(new Error('YELP_API_KEY not set'), { type: 'not_configured' });
+      return `https://api.yelp.com/v3/businesses/search?${new URLSearchParams({
+        term: query, location: opts.location || 'United States',
+        limit: String(Math.min(opts.maxResults || 10, 50)) }).toString()}`;
+    },
+    rateLimit: { kind: 'minInterval', minIntervalMs: 400 },
+    timeoutMs: 12000, retries: 1, cacheTtlMs: 60 * 60 * 1000,
+    parseResult: (bodyText) => (JSON.parse(bodyText).businesses || []).map((b, i) => makeResult({
+      url: b.url, title: b.name,
+      snippet: [b.location?.display_address?.join(', '), b.phone,
+                (b.categories || []).map((c) => c.title).join(', ')].filter(Boolean).join(' | '),
+      engine: 'yelp', rank: i + 1,
+    })),
+  },
 };
 
 /**
@@ -375,9 +430,10 @@ export const ENGINES = {
  * fallback chains. `search(query, { queryType })` picks one of these.
  */
 export const ROUTES = {
-  general: ['parallel', 'youcom', 'wiby'],
+  general: ['serpapi', 'parallel', 'youcom', 'searxng', 'wiby'],
   news: ['gdelt', 'parallel', 'youcom'],
-  small_web: ['wiby', 'parallel', 'youcom'],
+  small_web: ['wiby', 'searxng', 'parallel', 'youcom'],
+  local_business: ['yelp', 'serpapi'],
   domain_repeat: ['fess', 'yacyLocal'],
   decentralized: ['yacyGlobal'],
   url_inventory: ['commonCrawl', 'waybackCdx'],
