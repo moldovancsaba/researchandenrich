@@ -1076,3 +1076,60 @@ mapper and the API — and that `ice` arrives scored and passed through untouche
 with `ticketSizeEstimate` recomputed `method: "tier_band"`. That is one record.
 The full-catalog percentages (`sportCode` 90/84/0%) will not move until many
 records are rewritten. The mechanism works; the gaps have not closed.
+
+## 19. Four fields are accepted and silently dropped by salesleadgenerator -- 2026-08-13
+
+Found by the operator on a 25-record cogmap batch, verified by list:
+`contact_phone`, `decision_maker_name`, `decision_maker_title` and
+`decision_maker_contact` are emitted by `mapToApiPayload` as `""`, accepted with
+HTTP 200, and then **absent on 25/25 records** when read back — while other
+backfilled fields on the *same* records persisted (`canonicalLeadName`,
+`orgTypeCode`, `genderCode`, all 25/25). Not a rejected write; a silent drop.
+
+The shared field contract's "emit every field on every record" rule therefore
+cannot be satisfied for these four from this side, no matter what this repo does.
+
+**Decision: keep backfilling them, and model them as their own category.**
+`SALES_LEAD_SERVER_DROPPED_FIELDS`. The mapper owns what we *send*; what the
+destination persists is the destination's business. Emitting costs nothing,
+keeps the payload uniform across tenants, and means the fields start working the
+moment salesleadgenerator supports them, with no change here.
+
+What the list is actually for is **measurement**. A cross-tenant parity report
+that counts these four shows a permanent 0% that nobody can close, which reads
+as a data-quality failure rather than an upstream limitation. They must be
+excluded from such a report, or reported separately as blocked.
+
+This also forced a naming correction. `SALES_LEAD_SERVER_COMPUTED_FIELDS` had
+one member, `ice`, and `ice` is not server-computed — it is *rejected when
+empty* (§17). Renamed to `SALES_LEAD_REJECT_IF_EMPTY_FIELDS`. There are now
+three distinct behaviours, and conflating them is how the wrong handling gets
+applied to the wrong field:
+
+| Category | Behaviour | Handling |
+|---|---|---|
+| backfilled | empty accepted and stored | emit empty |
+| reject-if-empty (`ice`) | empty fails the whole write | omit unless real |
+| server-dropped (these four) | empty accepted, then discarded | emit; exclude from measurement |
+
+**Likely cause, not confirmed.** All four are the *flat* personal-contact
+scalars. The structured carriers on the same records — `contacts[]`,
+`contactEmails`, `general_contact` — all persist. That points at a schema-shape
+mismatch (salesleadgenerator holding contact detail inside `contacts[]` objects
+and having dropped the top-level scalars) rather than a privacy policy. Worth
+checking against salesleadgenerator's own schema before either side treats the
+drop as intentional — if it is a shape mismatch, the fix is to nest them, not to
+document the loss.
+
+Noted but **not** treated as evidence: these are exactly the four fields
+`classscout` lists as `forbiddenFields`. Different mechanism, different API. The
+overlap is most likely because both sets are "flat PII scalars", not because the
+two systems share a rule. Recording it so nobody later reads it as a connection
+that was never established.
+
+Batch context: 25/25 updated, 0 skipped, 0 errors; the runner loaded credentials
+from `RAE_ENV_DIR`, built URLs via `getApiEndpoint`, query string intact. `ice`
+arrived scored on 25/25 and is 2290/2290 tenant-wide, so the §17 exception costs
+cogmap nothing — untested on seyu and dvsc. No cross-tenant contamination on any
+of the three. Tenant-wide percentages have not moved (`sportCode` 90%,
+`contactEmails` 5%) because only 25 of 2290 records have been rewritten.

@@ -1,79 +1,1661 @@
 [
  {
-  "entity_name": "De Anza Force",
-  "url": "https://www.deanzaforce.org/",
+  "id": "6a67437bd1e151dfa27aa2c3",
   "region": "US",
-  "country": "US",
-  "industry": "Sports",
-  "sport_or_sector": "Soccer",
-  "level_league": "MLS Next / ECNL",
-  "size": "Large",
-  "priority": "medium",
-  "status": "new",
-  "recommended_tier": "performance",
-  "estimated_participants": 800,
-  "estimated_annual_revenue_usd": 90000,
-  "revenue_model": "per_participant",
-  "value_proposition": "De Anza Force is a top Northern California multi-program club with documented academy output and entry-to-elite pathways, supporting club-wide cognitive assessments across age groups.",
-  "product_fit_notes": "De Anza Force shows multi-team youth soccer structure eligible for club-wide cognitive rollout. 800 estimated participants across age groups supports performance tier deployment.",
+  "entity_name": "ALBION SAN DIEGO",
+  "url": "https://www.google.com/search?q=ALBION+SAN+DIEGO+++USA+soccer+club+facility+academy",
   "contacts": [
    {
-    "name": "De Anza Force Staff",
-    "title": "Club Director",
-    "email": "",
+    "name": "Albion San Diego Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
     "phone": "",
     "linkedin": "",
-    "role": "club leadership",
-    "isDecisionMaker": true,
+    "role": "",
+    "isDecisionMaker": false,
     "seniorityTier": "Director",
     "department": "Unknown",
-    "lastVerifiedAt": "2026-08-06T07:47:31.186Z",
-    "emailVerificationStatus": null
+    "lastVerifiedAt": "2026-07-28T08:14:03.201Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:03.392Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
    }
   ],
-  "pro_for_organization": [
-   "Multi-league participation",
-   "25+ year history",
-   "Bay Area market",
-   "Structured pathways"
-  ],
-  "con_for_organization": [
-   "Contact enrichment needed"
-  ],
+  "address": "",
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for ALBION SAN DIEGO, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00912. Type: Girls Academy / Elite Girls Club. Priority: Very High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated/very likely large; verify exact registration count). Route: Direct. Source group: GIRLS_ACADEMY. Source URL: https://girlsacademyleague.com/?da_image=1438. CSV status: Needs enrichment. Original notes: Recognized large youth-soccer organization with elite pathways and/or multi-location/member programming.",
   "tags": [
-   "MLS Next",
-   "ECNL",
-   "De Anza Force",
-   "California",
-   "academy"
+   "priority:very-high",
+   "GIRLS_ACADEMY",
+   "csv-import-2026-07-27"
   ],
+  "source": "csv_import",
   "ice": {
-   "impact": 5,
-   "confidence": 5,
-   "ease": 7
+   "impact": 6,
+   "confidence": 7,
+   "ease": 1
   },
+  "country": "US",
   "classificationTags": [
    "#sport:football",
    "#country:US"
   ],
   "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
   "sportCode": "football",
-  "pricingByCompany": {
-   "cogLeague ESSENTIAL": {
-    "annualPrice": 175
-   },
-   "cogLeague PERFORMANCE": {
-    "annualPrice": 500
-   },
-   "cogLeague ELITE": {
-    "annualPrice": 400
+  "techSignals": []
+ },
+ {
+  "id": "6a67437bd1e151dfa27aa2c2",
+  "region": "US",
+  "entity_name": "ALBION LAS VEGAS",
+  "url": "https://www.google.com/search?q=ALBION+LAS+VEGAS+++USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Albion Las Vegas Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:03.989Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:04.180Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
    }
-  },
-  "notes": "contact_research:found | 2026-08-08: contact_research:found \u2014 checked official site pages | named contacts found: ['Of Soccer'] | 2026-08-08: contact_research:found \u2014 checked official site pages | named contacts found: ['Of Soccer'] | 2026-08-09: contact_research:found \u2014 checked official site pages | named contacts found: ['Of Soccer'] | 2026-08-09: checked verified source: https://playclubsoccer.org/club/de-anza-force | contact_research:found \u2014 checked official site pages | 2026-08-09: checked verified source: https://playclubsoccer.org/club/de-anza-force | contact_research:found \u2014 checked official site pages",
-  "contactEmails": [],
-  "kanbanColumn": "DISCOVERED",
-  "techSignals": [],
+  ],
   "address": "",
-  "general_contact": ""
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for ALBION LAS VEGAS, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00911. Type: Girls Academy / Elite Girls Club. Priority: Very High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated/very likely large; verify exact registration count). Route: Direct. Source group: GIRLS_ACADEMY. Source URL: https://girlsacademyleague.com/?da_image=1438. CSV status: Needs enrichment. Original notes: Recognized large youth-soccer organization with elite pathways and/or multi-location/member programming.",
+  "tags": [
+   "priority:very-high",
+   "GIRLS_ACADEMY",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 7,
+   "ease": 1
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a67437ad1e151dfa27aa2c1",
+  "region": "US",
+  "entity_name": "Rush Soccer",
+  "url": "https://www.rushsoccer.com/mission-and-vision",
+  "contacts": [
+   {
+    "name": "Rush Soccer Contact",
+    "title": "",
+    "email": "bkukla@rushsoccer.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Unknown",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:16:02.938Z",
+    "emailVerificationStatus": null
+   },
+   {
+    "name": "Rush Soccer Contact",
+    "title": "",
+    "email": "contactus@rushsoccer.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Unknown",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:16:02.938Z",
+    "emailVerificationStatus": null
+   }
+  ],
+  "address": "Nationwide / global network",
+  "general_contact": "",
+  "size": "",
+  "industry": "Club network",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence layer for Rush Soccer, delivering sport-specific player assessment, parent reports, and team benchmarking tools.",
+  "recommended_tier": "Essential",
+  "estimated_participants": 200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00910. Type: Club Network / Franchise-like club platform. Priority: Very High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (High/confirmed by public scale or national network). Route: Partnership / Distributor. Source group: Manual / search prospect. Source URL: https://www.rushsoccer.com/mission-and-vision. CSV status: Named account. Original notes: National or multi-market operator; public information indicates large participation / network scale. 60,000+ players and 2,000 coaches publicly stated by Rush; excellent distributor-style channel.",
+  "tags": [
+   "priority:very-high",
+   "Manual / search prospect",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a67437ad1e151dfa27aa2c0",
+  "region": "US",
+  "entity_name": "Soccer Shots",
+  "url": "https://www.soccershots.com/",
+  "contacts": [
+   {
+    "name": "Soccer Shots Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:04.863Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:05.053Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "Nationwide",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth soccer program operator",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the youth cognitive development platform for Soccer Shots, providing age-appropriate assessment tools and parent engagement reports.",
+  "recommended_tier": "Essential",
+  "estimated_participants": 200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00909. Type: Children\u2019s Soccer Franchise / Program Operator. Priority: Very High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (High/confirmed by public scale or national network). Route: Partnership / Distributor. Source group: Manual / search prospect. Source URL: https://www.soccershots.com/. CSV status: Named account. Original notes: National or multi-market operator; public information indicates large participation / network scale. National youth soccer program for children; preschool / early-years channel.",
+  "tags": [
+   "priority:very-high",
+   "Manual / search prospect",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 7,
+   "ease": 1
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a67437ad1e151dfa27aa2bf",
+  "region": "US",
+  "entity_name": "Challenger Sports",
+  "url": "https://challengersports.com/about-us/",
+  "contacts": [
+   {
+    "name": "Challenger Sports Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:05.659Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:05.849Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "Nationwide / North America",
+  "general_contact": "",
+  "size": "",
+  "industry": "Camp/program operator",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence layer for Challenger Sports, delivering sport-specific player assessment, parent reports, and team benchmarking tools.",
+  "recommended_tier": "Essential",
+  "estimated_participants": 200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00908. Type: Camp / Program Operator. Priority: Very High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (High/confirmed by public scale or national network). Route: Partnership / Distributor. Source group: Manual / search prospect. Source URL: https://challengersports.com/about-us/. CSV status: Named account. Original notes: National or multi-market operator; public information indicates large participation / network scale. Public history cites 115,000 summer campers, 200+ club trainers, and large North America program footprint.",
+  "tags": [
+   "priority:very-high",
+   "Manual / search prospect",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 7,
+   "ease": 1
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674379d1e151dfa27aa2be",
+  "region": "US",
+  "entity_name": "UK International Soccer",
+  "url": "https://www.uk-international.com/",
+  "contacts": [
+   {
+    "name": "Uk International Soccer Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:06.469Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:06.660Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "Nationwide",
+  "general_contact": "",
+  "size": "",
+  "industry": "Camp/program operator",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence layer for UK International Soccer, delivering sport-specific player assessment, parent reports, and team benchmarking tools.",
+  "recommended_tier": "Essential",
+  "estimated_participants": 200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00907. Type: Camp / Coaching Provider. Priority: Very High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (High/confirmed by public scale or national network). Route: Partnership / Distributor. Source group: Manual / search prospect. Source URL: https://www.uk-international.com/. CSV status: Named account. Original notes: National or multi-market operator; public information indicates large participation / network scale. Youth soccer camp and coaching provider; strong channel potential.",
+  "tags": [
+   "priority:very-high",
+   "Manual / search prospect",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 7,
+   "ease": 1
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674379d1e151dfa27aa2bd",
+  "region": "US",
+  "entity_name": "West Virginia Soccer Club",
+  "url": "https://www.google.com/search?q=West+Virginia+Soccer+Club++WV+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "West Virginia Soccer Club Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:07.366Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:07.555Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WV",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for West Virginia Soccer Club, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00906. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 100-500 (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=West+Virginia+Soccer+Club++WV+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Club/academy account; size not public in quick source. Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 5,
+   "confidence": 7,
+   "ease": 1
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674378d1e151dfa27aa2bc",
+  "region": "US",
+  "entity_name": "Charleston Football Club WV",
+  "url": "https://www.google.com/search?q=Charleston+Football+Club+WV++WV+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Charleston Football Club Wv Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:08.143Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:08.337Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WV",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Charleston Football Club WV, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00905. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: Needs verification (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Charleston+Football+Club+WV++WV+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 7,
+   "ease": 1
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674378d1e151dfa27aa2bb",
+  "region": "US",
+  "entity_name": "West Virginia Soccer",
+  "url": "https://www.google.com/search?q=West+Virginia+Soccer++WV+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "West Virginia Soccer Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:08.950Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:09.140Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WV",
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for West Virginia Soccer, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00904. Type: Youth Soccer Club / MLS NEXT Member. Priority: High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated / elite-club proxy). Route: Direct. Source group: MLS_NEXT_HOMEGROWN. Source URL: https://www.mlssoccer.com/mlsnext/about/members. CSV status: Needs enrichment. Original notes: National-platform club or multi-age academy. Player count should be verified, but target fit is strong.",
+  "tags": [
+   "priority:high",
+   "MLS_NEXT_HOMEGROWN",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 7,
+   "ease": 1
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674378d1e151dfa27aa2ba",
+  "region": "US",
+  "entity_name": "Strike FC Wisconsin",
+  "url": "https://www.google.com/search?q=Strike+FC+Wisconsin++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Strike Fc Wisconsin Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:09.758Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:09.948Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Strike FC Wisconsin, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00903. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 100-500 (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Strike+FC+Wisconsin++WI+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Club/academy account; size not public in quick source. Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 5,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674377d1e151dfa27aa2b9",
+  "region": "US",
+  "entity_name": "Rush Wisconsin",
+  "url": "https://www.google.com/search?q=Rush+Wisconsin++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Rush Wisconsin Contact",
+    "title": "",
+    "email": "wisconsinadmin@rushwisconsin.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Unknown",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:12:29.776Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:12:30.560Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "alt1.aspmx.l.google.com",
+      "alt2.aspmx.l.google.com",
+      "alt3.aspmx.l.google.com",
+      "alt4.aspmx.l.google.com",
+      "aspmx.l.google.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Rush Wisconsin, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00902. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 100-500 (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Rush+Wisconsin++WI+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Club/academy account; size not public in quick source. Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 5,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674377d1e151dfa27aa2b8",
+  "region": "US",
+  "entity_name": "Milwaukee Kickers Soccer Club",
+  "url": "https://www.google.com/search?q=Milwaukee+Kickers+Soccer+Club++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Milwaukee Kickers Soccer Club Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:10.566Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:10.755Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Milwaukee Kickers Soccer Club, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00901. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 100-500 (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Milwaukee+Kickers+Soccer+Club++WI+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Club/academy account; size not public in quick source. Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 5,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674376d1e151dfa27aa2b7",
+  "region": "US",
+  "entity_name": "Madison 56ers Soccer Club",
+  "url": "https://www.google.com/search?q=Madison+56ers+Soccer+Club++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Madison 56ers Soccer Club Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:11.361Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:11.551Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Madison 56ers Soccer Club, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00900. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 100-500 (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Madison+56ers+Soccer+Club++WI+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Club/academy account; size not public in quick source. Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 5,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674376d1e151dfa27aa2b6",
+  "region": "US",
+  "entity_name": "Uihlein Soccer Park",
+  "url": "https://www.google.com/search?q=Uihlein+Soccer+Park+Milwaukee+WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Uihlein Soccer Park Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:12.158Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:12.347Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "Milwaukee, WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Soccer facility / sports complex",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive training partner for Uihlein Soccer Park, offering facility-wide player assessment programs and team benchmarking reports.",
+  "recommended_tier": "Essential",
+  "estimated_participants": 150,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00899. Type: Soccer Facility / Sports Complex. Priority: Medium. Buyer persona: Owner / GM / facility director / programming director. Offer: cogFit + cogEdge facility assessment package. Size band: Needs verification (Estimated). Route: Direct. Source group: Additional Soccer Facility Research. Source URL: https://www.google.com/search?q=Uihlein+Soccer+Park+Milwaukee+WI+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Facility-style account; verify annual soccer participant volume, active leagues/classes/camps, and decision maker.",
+  "tags": [
+   "priority:medium",
+   "Additional Soccer Facility Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674375d1e151dfa27aa2b5",
+  "region": "US",
+  "entity_name": "SC Wave",
+  "url": "https://www.google.com/search?q=SC+Wave++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Sc Wave Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:12.985Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:13.179Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for SC Wave, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00898. Type: Youth Soccer Club / MLS NEXT Member. Priority: High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated / elite-club proxy). Route: Direct. Source group: MLS_NEXT_HOMEGROWN. Source URL: https://www.mlssoccer.com/mlsnext/about/members. CSV status: Needs enrichment. Original notes: National-platform club or multi-age academy. Player count should be verified, but target fit is strong.",
+  "tags": [
+   "priority:high",
+   "MLS_NEXT_HOMEGROWN",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674375d1e151dfa27aa2b4",
+  "region": "US",
+  "entity_name": "Bavarian United SC",
+  "url": "https://www.google.com/search?q=Bavarian+United+SC++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Bavarian United Sc Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:13.886Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:14.075Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Bavarian United SC, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00897. Type: Youth Soccer Club / MLS NEXT Member. Priority: High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated / elite-club proxy). Route: Direct. Source group: MLS_NEXT_HOMEGROWN. Source URL: https://www.mlssoccer.com/mlsnext/about/members. CSV status: Needs enrichment. Original notes: National-platform club or multi-age academy. Player count should be verified, but target fit is strong.",
+  "tags": [
+   "priority:high",
+   "MLS_NEXT_HOMEGROWN",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674375d1e151dfa27aa2b3",
+  "region": "US",
+  "entity_name": "Wisconsin United FC",
+  "url": "https://www.google.com/search?q=Wisconsin+United+FC++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Wisconsin United Fc Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:14.695Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:14.884Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Wisconsin United FC, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00896. Type: Youth Soccer Club / MLS NEXT Academy Division. Priority: High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated / elite-club proxy). Route: Direct. Source group: MLS_NEXT_ACADEMY. Source URL: https://www.mlssoccer.com/mlsnext/academy-division/members. CSV status: Needs enrichment. Original notes: National-platform club or multi-age academy. Player count should be verified, but target fit is strong.",
+  "tags": [
+   "priority:high",
+   "MLS_NEXT_ACADEMY",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674374d1e151dfa27aa2b2",
+  "region": "US",
+  "entity_name": "Forward Madison FC",
+  "url": "https://www.google.com/search?q=Forward+Madison+FC++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Forward Madison Fc Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:15.513Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:15.704Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Forward Madison FC, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00895. Type: Youth Soccer Club / MLS NEXT Academy Division. Priority: High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated / elite-club proxy). Route: Direct. Source group: MLS_NEXT_ACADEMY. Source URL: https://www.mlssoccer.com/mlsnext/academy-division/members. CSV status: Needs enrichment. Original notes: National-platform club or multi-age academy. Player count should be verified, but target fit is strong.",
+  "tags": [
+   "priority:high",
+   "MLS_NEXT_ACADEMY",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674374d1e151dfa27aa2b1",
+  "region": "US",
+  "entity_name": "Elmbrook United",
+  "url": "https://www.google.com/search?q=Elmbrook+United++WI+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Elmbrook United Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:16.292Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:16.481Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WI",
+  "general_contact": "",
+  "size": "",
+  "industry": "Elite youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Elmbrook United, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00894. Type: Youth Soccer Club / MLS NEXT Academy Division. Priority: High. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 500+ (Estimated / elite-club proxy). Route: Direct. Source group: MLS_NEXT_ACADEMY. Source URL: https://www.mlssoccer.com/mlsnext/academy-division/members. CSV status: Needs enrichment. Original notes: National-platform club or multi-age academy. Player count should be verified, but target fit is strong.",
+  "tags": [
+   "priority:high",
+   "MLS_NEXT_ACADEMY",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674373d1e151dfa27aa2b0",
+  "region": "US",
+  "entity_name": "Washington Premier FC",
+  "url": "https://www.google.com/search?q=Washington+Premier+FC++WA+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Washington Premier Fc Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:17.108Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:17.297Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WA",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Washington Premier FC, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00893. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: Needs verification (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Washington+Premier+FC++WA+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674373d1e151dfa27aa2af",
+  "region": "US",
+  "entity_name": "Snohomish United",
+  "url": "https://www.google.com/search?q=Snohomish+United++WA+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Snohomish United Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:17.886Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:18.077Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WA",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Snohomish United, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00892. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: Needs verification (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Snohomish+United++WA+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674373d1e151dfa27aa2ae",
+  "region": "US",
+  "entity_name": "Seattle United",
+  "url": "https://www.google.com/search?q=Seattle+United++WA+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Seattle United Contact",
+    "title": "",
+    "email": "user@domain.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Unknown",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:12:44.135Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:12:45.229Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "domain-com.mail.protection.outlook.com"
+     ]
+    }
+   },
+   {
+    "name": "Seattle United Contact",
+    "title": "",
+    "email": "info@seattleunited.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Unknown",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:12:44.135Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:12:45.229Z",
+     "isRoleAccount": true,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "alt1.aspmx.l.google.com",
+      "alt2.aspmx.l.google.com",
+      "alt3.aspmx.l.google.com",
+      "alt4.aspmx.l.google.com",
+      "aspmx.l.google.com"
+     ]
+    }
+   }
+  ],
+  "address": "WA",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Seattle United, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00891. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: Needs verification (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Seattle+United++WA+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674372d1e151dfa27aa2ad",
+  "region": "US",
+  "entity_name": "Pacific Northwest Soccer Club",
+  "url": "https://www.google.com/search?q=Pacific+Northwest+Soccer+Club++WA+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Pacific Northwest Soccer Club Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:18.661Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:18.851Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WA",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Pacific Northwest Soccer Club, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00890. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: 100-500 (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Pacific+Northwest+Soccer+Club++WA+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Club/academy account; size not public in quick source. Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 5,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674372d1e151dfa27aa2ac",
+  "region": "US",
+  "entity_name": "Eastside FC",
+  "url": "https://www.google.com/search?q=Eastside+FC++WA+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Eastside Fc Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:19.471Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:19.662Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WA",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Eastside FC, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00889. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: Needs verification (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Eastside+FC++WA+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
+ },
+ {
+  "id": "6a674371d1e151dfa27aa2ab",
+  "region": "US",
+  "entity_name": "Crossfire Premier",
+  "url": "https://www.google.com/search?q=Crossfire+Premier++WA+USA+soccer+club+facility+academy",
+  "contacts": [
+   {
+    "name": "Crossfire Premier Contact",
+    "title": "Director",
+    "email": "error-lite@duckduckgo.com",
+    "phone": "",
+    "linkedin": "",
+    "role": "",
+    "isDecisionMaker": false,
+    "seniorityTier": "Director",
+    "department": "Unknown",
+    "lastVerifiedAt": "2026-07-28T08:14:20.278Z",
+    "emailVerificationStatus": {
+     "status": "mx-verified",
+     "checkedAt": "2026-07-28T08:14:20.469Z",
+     "isRoleAccount": false,
+     "isFreeProvider": false,
+     "mxHosts": [
+      "duckduckgo-com.mail.protection.outlook.com"
+     ]
+    }
+   }
+  ],
+  "address": "WA",
+  "general_contact": "",
+  "size": "",
+  "industry": "Youth club / academy",
+  "sport_or_sector": "Soccer",
+  "level_league": "",
+  "pro_for_organization": [],
+  "con_for_organization": [],
+  "value_proposition": "Position CogMap as the cognitive intelligence platform for Crossfire Premier, providing player assessment reports, parent-facing dashboards, and team benchmarking tools for academy development.",
+  "recommended_tier": "Performance",
+  "estimated_participants": 1200,
+  "estimated_annual_revenue_usd": 0,
+  "revenue_model": "per_participant",
+  "product_fit_notes": "no settings available",
+  "pricingByCompany": {},
+  "status": "new",
+  "notes": "Imported from CSV (2026-07-27). Source ID: XSL-00888. Type: Youth Soccer Club / Large Regional Club. Priority: Medium. Buyer persona: Owner / Executive Director / DOC / Academy Director / Facility Director. Offer: cogFit + cogEdge club/facility assessment package. Size band: Needs verification (Estimated). Route: Direct. Source group: Additional US Prospect Research. Source URL: https://www.google.com/search?q=Crossfire+Premier++WA+USA+soccer+club+facility+academy. CSV status: Needs enrichment. Original notes: Additional large club/facility prospect; verify exact annual player count and buyer contact.",
+  "tags": [
+   "priority:medium",
+   "Additional US Prospect Research",
+   "csv-import-2026-07-27"
+  ],
+  "source": "csv_import",
+  "ice": {
+   "impact": 6,
+   "confidence": 8,
+   "ease": 5
+  },
+  "country": "US",
+  "classificationTags": [
+   "#sport:football",
+   "#country:US"
+  ],
+  "mergeKey": "unknown|football|unknown|unknown|unknown|US|unknown",
+  "sportCode": "football",
+  "techSignals": []
  }
 ]

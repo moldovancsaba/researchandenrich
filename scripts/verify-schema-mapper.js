@@ -795,7 +795,8 @@ const CONTRACT_PATH = require('path').join(
   __dirname, '..', 'prompts', 'shared', 'sales-lead-fields.md');
 const {
   SALES_LEAD_CONTRACT_FIELDS,
-  SALES_LEAD_SERVER_COMPUTED_FIELDS,
+  SALES_LEAD_REJECT_IF_EMPTY_FIELDS,
+  SALES_LEAD_SERVER_DROPPED_FIELDS,
 } = require('../schema-mapper');
 
 /** Field names are the backticked identifiers in the contract's bullet list. */
@@ -824,7 +825,7 @@ check('every contract field is backfilled or recorded as server-computed', () =>
   const contract = contractFieldNames();
   const handled = new Set([
     ...Object.keys(SALES_LEAD_CONTRACT_FIELDS),
-    ...SALES_LEAD_SERVER_COMPUTED_FIELDS,
+    ...SALES_LEAD_REJECT_IF_EMPTY_FIELDS,
     // Named in the contract only to forbid them.
     'pro_for_tenant', 'con_for_tenant',
   ]);
@@ -832,8 +833,8 @@ check('every contract field is backfilled or recorded as server-computed', () =>
     && !/^(pro|con)_for_/.test(f));
   assert.deepStrictEqual(missing, [],
     `contract fields neither backfilled nor recorded as server-computed: ${missing.join(', ')}. `
-    + 'Add them to SALES_LEAD_CONTRACT_FIELDS, or to SALES_LEAD_SERVER_COMPUTED_FIELDS '
-    + 'with evidence that salesleadgenerator computes them.');
+    + 'Add them to SALES_LEAD_CONTRACT_FIELDS, or to SALES_LEAD_REJECT_IF_EMPTY_FIELDS '
+    + 'with evidence that an empty value is rejected.');
 });
 
 check('the mapper backfills nothing the contract does not list', () => {
@@ -843,14 +844,14 @@ check('the mapper backfills nothing the contract does not list', () => {
     `mapper backfills fields absent from the prompt contract: ${extra.join(', ')}`);
 });
 
-check('server-computed fields are NOT backfilled', () => {
+check('reject-if-empty fields are NOT backfilled', () => {
   // Sending an empty value for a field the server derives risks clobbering a
   // correct one. Absent is the current working behaviour; empty is unverified.
-  for (const field of SALES_LEAD_SERVER_COMPUTED_FIELDS) {
+  for (const field of SALES_LEAD_REJECT_IF_EMPTY_FIELDS) {
     assert.ok(!(field in SALES_LEAD_CONTRACT_FIELDS), `${field} must not be backfilled`);
     for (const id of SALES_LEAD_TENANTS) {
       const out = mapper.mapToApiPayload(id, {});
-      assert.ok(!(field in out), `${id} emitted server-computed ${field}`);
+      assert.ok(!(field in out), `${id} emitted reject-if-empty ${field}`);
     }
   }
 });
@@ -945,6 +946,53 @@ check('ticketSizeEstimate IS backfilled and empty', () => {
     const out = mapper.mapToApiPayload(id, {});
     assert.strictEqual(out.ticketSizeEstimate, '', `${id} is missing ticketSizeEstimate`);
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// Server-dropped fields (operator batch, 2026-08-13)
+//
+// Four fields are ACCEPTED (HTTP 200) and then silently discarded: absent on
+// 25/25 records read back by list, while other backfilled fields on the same
+// records persisted. They are still emitted -- the mapper owns what we send,
+// not what the destination keeps -- but they must be excluded from any parity
+// measurement, or they read as a permanent 0% nobody can close.
+// ---------------------------------------------------------------------------
+
+check('server-dropped fields are still emitted, for every tenant', () => {
+  // Deliberate: emitting costs nothing, keeps the payload uniform, and the
+  // fields start working the moment salesleadgenerator supports them.
+  for (const id of SALES_LEAD_TENANTS) {
+    const out = mapper.mapToApiPayload(id, {});
+    for (const field of SALES_LEAD_SERVER_DROPPED_FIELDS) {
+      assert.ok(field in out, `${id} stopped emitting server-dropped ${field}`);
+    }
+  }
+});
+
+check('server-dropped and reject-if-empty are disjoint', () => {
+  // Different mechanisms with opposite handling: dropped fields ARE backfilled,
+  // reject-if-empty fields are NOT. A field in both would be contradictory.
+  const overlap = SALES_LEAD_SERVER_DROPPED_FIELDS
+    .filter((f) => SALES_LEAD_REJECT_IF_EMPTY_FIELDS.includes(f));
+  assert.deepStrictEqual(overlap, [], `field in both categories: ${overlap.join(', ')}`);
+});
+
+check('every server-dropped field is part of the contract', () => {
+  // A dropped field that is not in the contract would be dead weight in the
+  // payload with nothing documenting why.
+  const contract = contractFieldNames();
+  for (const field of SALES_LEAD_SERVER_DROPPED_FIELDS) {
+    assert.ok(contract.has(field), `${field} is marked server-dropped but is not in the contract`);
+    assert.ok(field in SALES_LEAD_CONTRACT_FIELDS, `${field} is server-dropped but not backfilled`);
+  }
+});
+
+check('a sourced value for a server-dropped field is still passed through', () => {
+  // We send what we found. That it does not persist is the destination's
+  // behaviour, not a reason to discard the agent's work locally.
+  const out = mapper.mapToApiPayload('cogmap', { decision_maker_name: 'A. Person' });
+  assert.strictEqual(out.decision_maker_name, 'A. Person');
 });
 
 console.log(`\n${passed} check(s) passed.`);

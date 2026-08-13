@@ -97,7 +97,8 @@ const SALES_LEAD_CONTRACT_FIELDS = {
 };
 
 /**
- * Contract fields deliberately NOT backfilled.
+ * Contract fields deliberately NOT backfilled, because an empty value is
+ * REJECTED rather than stored.
  *
  * `ice` is the single documented exception to the contract's "emit every field,
  * empty rather than omitted" rule, and it is an exception because an empty value
@@ -128,7 +129,46 @@ const SALES_LEAD_CONTRACT_FIELDS = {
  * and unchanged values (`method: "tier_band"`) -- discarded and recomputed, not
  * clobbered. It is now backfilled.
  */
-const SALES_LEAD_SERVER_COMPUTED_FIELDS = ['ice'];
+const SALES_LEAD_REJECT_IF_EMPTY_FIELDS = ['ice'];
+
+/**
+ * Fields salesleadgenerator ACCEPTS and then silently discards.
+ *
+ * Measured by the operator on 2026-08-13 across a 25-record cogmap batch:
+ * `mapToApiPayload` emitted all four as `""`, the API returned 200, and all
+ * four were absent on 25/25 records read back by list -- while other backfilled
+ * fields on the SAME records persisted (canonicalLeadName, orgTypeCode,
+ * genderCode all 25/25). So this is not a rejected write; it is a silent drop.
+ *
+ * They are still BACKFILLED. The mapper's job is to emit a complete,
+ * self-consistent payload; what the destination persists is the destination's
+ * business. Emitting them costs nothing, keeps the payload uniform across
+ * tenants, and means the fields start working the moment salesleadgenerator
+ * supports them, with no change here.
+ *
+ * What this list is FOR is measurement: a cross-tenant parity report that counts
+ * these four will show a permanent 0% that nobody can close from this side. They
+ * must be excluded from such a report, or reported separately as blocked.
+ *
+ * LIKELY CAUSE, not yet confirmed: all four are the FLAT personal-contact
+ * scalars. The structured carriers on the same records -- `contacts[]`,
+ * `contactEmails`, `general_contact` -- all persist. That points at a schema
+ * shape mismatch (salesleadgenerator holding contact detail inside `contacts[]`
+ * objects and having dropped the top-level scalars) rather than a privacy
+ * policy. Worth checking against salesleadgenerator's own schema before either
+ * side treats the drop as intentional.
+ *
+ * Noted but not treated as evidence: these are exactly the four fields
+ * classscout lists as forbidden. That is a different mechanism -- anti-
+ * contamination on a different API -- and the overlap is most likely because
+ * both are "flat PII scalars", not because the two systems share a rule.
+ */
+const SALES_LEAD_SERVER_DROPPED_FIELDS = [
+  'contact_phone',
+  'decision_maker_name',
+  'decision_maker_title',
+  'decision_maker_contact',
+];
 
 const SALES_LEAD_TIERS = ['essential', 'performance', 'elite', 'multiple'];
 const SALES_LEAD_REVENUE_MODELS = ['per_participant', 'revenue_share', 'hybrid'];
@@ -1044,4 +1084,5 @@ module.exports.InvalidIdentifierError = InvalidIdentifierError;
 module.exports.RECORD_ID_PATTERN = RECORD_ID_PATTERN;
 module.exports.extractSubjectDocuments = extractSubjectDocuments;
 module.exports.SALES_LEAD_CONTRACT_FIELDS = SALES_LEAD_CONTRACT_FIELDS;
-module.exports.SALES_LEAD_SERVER_COMPUTED_FIELDS = SALES_LEAD_SERVER_COMPUTED_FIELDS;
+module.exports.SALES_LEAD_REJECT_IF_EMPTY_FIELDS = SALES_LEAD_REJECT_IF_EMPTY_FIELDS;
+module.exports.SALES_LEAD_SERVER_DROPPED_FIELDS = SALES_LEAD_SERVER_DROPPED_FIELDS;
