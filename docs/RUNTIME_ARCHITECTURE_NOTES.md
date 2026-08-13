@@ -1133,3 +1133,34 @@ arrived scored on 25/25 and is 2290/2290 tenant-wide, so the §17 exception cost
 cogmap nothing — untested on seyu and dvsc. No cross-tenant contamination on any
 of the three. Tenant-wide percentages have not moved (`sportCode` 90%,
 `contactEmails` 5%) because only 25 of 2290 records have been rewritten.
+
+## 16. The four "dropped" contact fields are a shape mismatch, not a loss (2026-08-13)
+
+The 2026-08-12 batch showed `contact_phone`, `decision_maker_name`,
+`decision_maker_title` and `decision_maker_contact` absent on 25/25 records after a
+successful write, and they were provisionally categorised as server-dropped. **That
+categorisation was based on an incomplete test: every value sent had been empty.**
+
+Retested with real values, on one DRAFT record, restored afterwards, verified by list:
+
+| sent | stored |
+|---|---|
+| top-level `contact_phone: "+1-555-0100"`, `decision_maker_name: "Test Person"` | **not stored** (`None`) |
+| the same detail inside `contacts: [{name, title, phone, email}]` | **stored and normalised** — API reformatted the phone to `+15550100` and added `linkedin`, `role`, `isDecisionMaker` |
+
+salesleadgenerator carries personal contact detail **inside `contacts[]`** and ignores
+the flat top-level scalars regardless of value. This is a schema mismatch on our side,
+not data loss on theirs, and it is fixable today rather than permanent.
+
+Two lessons worth keeping:
+
+- **Testing only the empty case answered the wrong question.** "Is empty accepted?" and
+  "is this field stored at all?" are different questions, and the first was mistaken for
+  the second for a full day.
+- Documenting the fields as permanently dropped would have **frozen the wrong model into
+  both the prompt contract and the mapper**, and the parity report would have shown a
+  permanent 0% that was actually our own payload shape.
+
+`prompts/shared/sales-lead-fields.md` now instructs the agent to put personal contact
+detail inside `contacts[]` objects, keeps the four scalars emitted for payload
+uniformity, and excludes them from parity measurement.

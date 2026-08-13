@@ -55,9 +55,24 @@ gaps behind "that tenant just doesn't have it".
 - `parentOrgName`, `relationshipToParent`
 
 ### Contact (minimum one named contact with email or phone)
-- `contacts` — array of contact objects
-- `contactEmails`, `general_contact`, `contact_phone`
-- `decision_maker_name`, `decision_maker_title`, `decision_maker_contact`
+
+**Put personal contact detail INSIDE `contacts[]`. That is the only carrier that
+persists.** Verified 2026-08-13 against production: a real value in the flat scalars
+`contact_phone`, `decision_maker_name`, `decision_maker_title`,
+`decision_maker_contact` is accepted with HTTP 200 and then **ignored** — it is not
+stored, empty or not. The identical detail sent inside a `contacts[]` object is stored
+and normalised (the API reformats the phone and adds `linkedin`, `role`,
+`isDecisionMaker` itself).
+
+- `contacts` — **array of objects: `{ name, title, phone, email }`.** A decision maker
+  is a contact object with their title, not a separate flat field.
+- `contactEmails`, `general_contact` — organisation-level, these do persist
+
+The four flat scalars are still emitted for payload uniformity and start working the
+moment the API supports them, but **do not rely on them and do not treat their absence
+downstream as a sourcing failure** — they are excluded from parity measurement:
+
+- `contact_phone`, `decision_maker_name`, `decision_maker_title`, `decision_maker_contact`
 
 ### Assessment
 - `value_proposition` — why this organization fits, in the tenant's own terms
