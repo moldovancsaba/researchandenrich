@@ -132,38 +132,39 @@ const SALES_LEAD_CONTRACT_FIELDS = {
 const SALES_LEAD_REJECT_IF_EMPTY_FIELDS = ['ice'];
 
 /**
- * Fields salesleadgenerator ACCEPTS and then silently discards.
+ * Fields SUPERSEDED by a structured carrier.
  *
- * Measured by the operator on 2026-08-13 across a 25-record cogmap batch:
- * `mapToApiPayload` emitted all four as `""`, the API returned 200, and all
- * four were absent on 25/25 records read back by list -- while other backfilled
- * fields on the SAME records persisted (canonicalLeadName, orgTypeCode,
- * genderCode all 25/25). So this is not a rejected write; it is a silent drop.
+ * These four flat scalars are accepted with HTTP 200 and then ignored --
+ * **regardless of value**. The same data sent inside a `contacts[]` object is
+ * stored and normalised. `contacts[]` is the carrier; these are the vestigial
+ * shape.
  *
- * They are still BACKFILLED. The mapper's job is to emit a complete,
- * self-consistent payload; what the destination persists is the destination's
- * business. Emitting them costs nothing, keeps the payload uniform across
- * tenants, and means the fields start working the moment salesleadgenerator
- * supports them, with no change here.
+ * Measured against production, 2026-08-13, on one DRAFT cogmap record with real
+ * values (not empty), restored afterwards and verified by list:
  *
- * What this list is FOR is measurement: a cross-tenant parity report that counts
- * these four will show a permanent 0% that nobody can close from this side. They
- * must be excluded from such a report, or reported separately as blocked.
+ *   contact_phone "+1-555-0100"       -> PUT 200 -> stored: null
+ *   decision_maker_name "Test Person" -> PUT 200 -> stored: null
+ *   decision_maker_title "Director"   -> PUT 200 -> stored: null
+ *   contacts:[{name,title,phone,email}] -> PUT 200 -> STORED and normalised
+ *     (the API reformatted the phone and added linkedin, role, isDecisionMaker)
  *
- * LIKELY CAUSE, not yet confirmed: all four are the FLAT personal-contact
- * scalars. The structured carriers on the same records -- `contacts[]`,
- * `contactEmails`, `general_contact` -- all persist. That points at a schema
- * shape mismatch (salesleadgenerator holding contact detail inside `contacts[]`
- * objects and having dropped the top-level scalars) rather than a privacy
- * policy. Worth checking against salesleadgenerator's own schema before either
- * side treats the drop as intentional.
+ * "SUPERSEDED", not "dropped". The distinction is the whole point: dropped
+ * implies nothing can be done, superseded tells the next reader where the data
+ * actually goes. An earlier revision of this constant said "dropped" on the
+ * strength of a batch in which every value sent was EMPTY -- which answered
+ * "is empty accepted?" and was reported as "is this field stored at all?".
+ * Two different questions. The variant with real values is what separated them.
  *
- * Noted but not treated as evidence: these are exactly the four fields
- * classscout lists as forbidden. That is a different mechanism -- anti-
- * contamination on a different API -- and the overlap is most likely because
- * both are "flat PII scalars", not because the two systems share a rule.
+ * They are still BACKFILLED and still emitted: it costs nothing, keeps the
+ * payload uniform across tenants, and they start working the moment
+ * salesleadgenerator supports them. But nothing should DEPEND on them, and they
+ * must be excluded from cross-tenant parity measurement -- counting them shows
+ * a permanent 0% that is an upstream shape difference, not a sourcing failure.
+ *
+ * `prompts/shared/sales-lead-fields.md` instructs the agent to put name, title,
+ * phone and email inside `contacts[]` accordingly.
  */
-const SALES_LEAD_SERVER_DROPPED_FIELDS = [
+const SALES_LEAD_SUPERSEDED_FIELDS = [
   'contact_phone',
   'decision_maker_name',
   'decision_maker_title',
@@ -178,6 +179,9 @@ const SALES_LEAD_PRICING_MODELS = [
 const SALES_LEAD_PRICING_NUMERIC_KEYS = [
   'upfront_eur', 'monthly_eur', 'annual_fee_eur', 'discount_percent', 'revenue_share_percent',
 ];
+
+/** Where the superseded fields' data actually persists. */
+const SALES_LEAD_SUPERSEDING_CARRIER = 'contacts';
 
 const RECORD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
@@ -1085,4 +1089,5 @@ module.exports.RECORD_ID_PATTERN = RECORD_ID_PATTERN;
 module.exports.extractSubjectDocuments = extractSubjectDocuments;
 module.exports.SALES_LEAD_CONTRACT_FIELDS = SALES_LEAD_CONTRACT_FIELDS;
 module.exports.SALES_LEAD_REJECT_IF_EMPTY_FIELDS = SALES_LEAD_REJECT_IF_EMPTY_FIELDS;
-module.exports.SALES_LEAD_SERVER_DROPPED_FIELDS = SALES_LEAD_SERVER_DROPPED_FIELDS;
+module.exports.SALES_LEAD_SUPERSEDED_FIELDS = SALES_LEAD_SUPERSEDED_FIELDS;
+module.exports.SALES_LEAD_SUPERSEDING_CARRIER = SALES_LEAD_SUPERSEDING_CARRIER;

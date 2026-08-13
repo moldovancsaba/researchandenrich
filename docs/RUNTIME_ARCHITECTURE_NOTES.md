@@ -1164,3 +1164,62 @@ Two lessons worth keeping:
 `prompts/shared/sales-lead-fields.md` now instructs the agent to put personal contact
 detail inside `contacts[]` objects, keeps the four scalars emitted for payload
 uniformity, and excludes them from parity measurement.
+
+## 20. The four fields are superseded, not dropped -- 2026-08-13
+
+§19 concluded that `contact_phone`, `decision_maker_name`,
+`decision_maker_title` and `decision_maker_contact` were silently dropped by
+salesleadgenerator, and recorded a hypothesis: that the four are the *flat*
+personal-contact scalars while the structured carriers on the same records
+(`contacts[]`, `contactEmails`, `general_contact`) all persist, pointing at a
+schema-shape mismatch rather than a policy.
+
+**The hypothesis was right.** Operator test, 2026-08-13, one DRAFT cogmap
+record with **real** values, restored afterwards and verified by list:
+
+```
+contact_phone "+1-555-0100"          -> PUT 200 -> stored: null
+decision_maker_name "Test Person"    -> PUT 200 -> stored: null
+decision_maker_title "Director"      -> PUT 200 -> stored: null
+contacts:[{name,title,phone,email}]  -> PUT 200 -> STORED and normalised
+    (the API reformatted the phone and added linkedin, role, isDecisionMaker)
+```
+
+The flat scalars are ignored **regardless of value**. `contacts[]` is the
+carrier. This is fixable today by sending the right shape, not permanent loss.
+
+**Why §19 got it wrong, and it is worth naming.** Every value in the batch that
+produced §19 was **empty**. That measurement answered "is an empty value
+accepted?" and was reported as "is this field stored at all?" — two different
+questions, conflated for a day by both sides. The variant with real values is
+what separated them. A test whose inputs are all empty cannot distinguish
+"ignored" from "stored as empty", and neither of us noticed that until the
+schema question forced a different experiment.
+
+**Category renamed: `SALES_LEAD_SUPERSEDED_FIELDS`,** with
+`SALES_LEAD_SUPERSEDING_CARRIER = 'contacts'`. The operator proposed the rename
+and it is right for the same reason `SALES_LEAD_REJECT_IF_EMPTY_FIELDS` was
+right (§19): the name determines the handling the next reader reaches for.
+"Dropped" implies nothing can be done; "superseded" says where the data goes.
+
+Handling is unchanged — still backfilled, still emitted, still excluded from
+parity measurement. Only the name and the reason changed, which is the point:
+the behaviour was already correct, the *explanation* was not, and a wrong
+explanation is what produces the wrong next decision.
+
+Two guards added. The carrier must exist, be backfilled and be in the prompt
+contract — if `contacts[]` ever left, these four would silently become genuinely
+dropped with nowhere for the data to go and the category name would lie.
+Verified the guard fires by removing `contacts` from the backfill. And a
+`contacts[]` entry is passed through **without reshaping**: the API normalises
+these itself, so reshaping here would fight a server that already does it
+correctly.
+
+Three behaviours are now distinguished, and the earlier single
+`SALES_LEAD_SERVER_COMPUTED_FIELDS` conflated all of them:
+
+| Category | Behaviour | Handling |
+|---|---|---|
+| backfilled | empty accepted and stored | emit empty |
+| reject-if-empty (`ice`) | empty fails the whole write | omit unless real |
+| superseded (the four) | ignored; `contacts[]` carries the data | emit, exclude from measurement |

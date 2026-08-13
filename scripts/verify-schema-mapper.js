@@ -788,7 +788,7 @@ check('forecastModel no longer changes the payload shape', () => {
 // truth for WHICH fields exist. The mapper backfills them so omission is
 // structurally impossible rather than a prompt-compliance question. These
 // checks fail if the two drift -- a field the operator adds must be backfilled
-// here, or explicitly recorded as server-computed.
+// here, or explicitly recorded as reject-if-empty or superseded.
 // ---------------------------------------------------------------------------
 
 const CONTRACT_PATH = require('path').join(
@@ -796,7 +796,8 @@ const CONTRACT_PATH = require('path').join(
 const {
   SALES_LEAD_CONTRACT_FIELDS,
   SALES_LEAD_REJECT_IF_EMPTY_FIELDS,
-  SALES_LEAD_SERVER_DROPPED_FIELDS,
+  SALES_LEAD_SUPERSEDED_FIELDS,
+  SALES_LEAD_SUPERSEDING_CARRIER,
 } = require('../schema-mapper');
 
 /** Field names are the backticked identifiers in the contract's bullet list. */
@@ -821,7 +822,7 @@ check('the prompt contract file is parseable and non-empty', () => {
     `only parsed ${contractFieldNames().size} field names from the contract`);
 });
 
-check('every contract field is backfilled or recorded as server-computed', () => {
+check('every contract field is backfilled or recorded as reject-if-empty', () => {
   const contract = contractFieldNames();
   const handled = new Set([
     ...Object.keys(SALES_LEAD_CONTRACT_FIELDS),
@@ -832,7 +833,7 @@ check('every contract field is backfilled or recorded as server-computed', () =>
   const missing = [...contract].filter((f) => !handled.has(f)
     && !/^(pro|con)_for_/.test(f));
   assert.deepStrictEqual(missing, [],
-    `contract fields neither backfilled nor recorded as server-computed: ${missing.join(', ')}. `
+    `contract fields neither backfilled nor recorded as reject-if-empty: ${missing.join(', ')}. `
     + 'Add them to SALES_LEAD_CONTRACT_FIELDS, or to SALES_LEAD_REJECT_IF_EMPTY_FIELDS '
     + 'with evidence that an empty value is rejected.');
 });
@@ -950,7 +951,7 @@ check('ticketSizeEstimate IS backfilled and empty', () => {
 
 
 // ---------------------------------------------------------------------------
-// Server-dropped fields (operator batch, 2026-08-13)
+// Superseded fields (operator batch, 2026-08-13)
 //
 // Four fields are ACCEPTED (HTTP 200) and then silently discarded: absent on
 // 25/25 records read back by list, while other backfilled fields on the same
@@ -959,40 +960,67 @@ check('ticketSizeEstimate IS backfilled and empty', () => {
 // measurement, or they read as a permanent 0% nobody can close.
 // ---------------------------------------------------------------------------
 
-check('server-dropped fields are still emitted, for every tenant', () => {
+check('superseded fields are still emitted, for every tenant', () => {
   // Deliberate: emitting costs nothing, keeps the payload uniform, and the
   // fields start working the moment salesleadgenerator supports them.
   for (const id of SALES_LEAD_TENANTS) {
     const out = mapper.mapToApiPayload(id, {});
-    for (const field of SALES_LEAD_SERVER_DROPPED_FIELDS) {
-      assert.ok(field in out, `${id} stopped emitting server-dropped ${field}`);
+    for (const field of SALES_LEAD_SUPERSEDED_FIELDS) {
+      assert.ok(field in out, `${id} stopped emitting superseded ${field}`);
     }
   }
 });
 
-check('server-dropped and reject-if-empty are disjoint', () => {
+check('superseded and reject-if-empty are disjoint', () => {
   // Different mechanisms with opposite handling: dropped fields ARE backfilled,
   // reject-if-empty fields are NOT. A field in both would be contradictory.
-  const overlap = SALES_LEAD_SERVER_DROPPED_FIELDS
+  const overlap = SALES_LEAD_SUPERSEDED_FIELDS
     .filter((f) => SALES_LEAD_REJECT_IF_EMPTY_FIELDS.includes(f));
   assert.deepStrictEqual(overlap, [], `field in both categories: ${overlap.join(', ')}`);
 });
 
-check('every server-dropped field is part of the contract', () => {
+check('every superseded field is part of the contract', () => {
   // A dropped field that is not in the contract would be dead weight in the
   // payload with nothing documenting why.
   const contract = contractFieldNames();
-  for (const field of SALES_LEAD_SERVER_DROPPED_FIELDS) {
-    assert.ok(contract.has(field), `${field} is marked server-dropped but is not in the contract`);
-    assert.ok(field in SALES_LEAD_CONTRACT_FIELDS, `${field} is server-dropped but not backfilled`);
+  for (const field of SALES_LEAD_SUPERSEDED_FIELDS) {
+    assert.ok(contract.has(field), `${field} is marked superseded but is not in the contract`);
+    assert.ok(field in SALES_LEAD_CONTRACT_FIELDS, `${field} is superseded but not backfilled`);
   }
 });
 
-check('a sourced value for a server-dropped field is still passed through', () => {
+check('a sourced value for a superseded field is still passed through', () => {
   // We send what we found. That it does not persist is the destination's
   // behaviour, not a reason to discard the agent's work locally.
   const out = mapper.mapToApiPayload('cogmap', { decision_maker_name: 'A. Person' });
   assert.strictEqual(out.decision_maker_name, 'A. Person');
+});
+
+
+check('the superseding carrier exists and is itself backfilled', () => {
+  // "Superseded" is only a meaningful category if the carrier is real. If
+  // contacts[] ever left the contract, these four would silently become
+  // genuinely dropped with nowhere for the data to go, and the name would lie.
+  assert.ok(SALES_LEAD_SUPERSEDING_CARRIER in SALES_LEAD_CONTRACT_FIELDS,
+    `the carrier '${SALES_LEAD_SUPERSEDING_CARRIER}' is not backfilled`);
+  assert.ok(contractFieldNames().has(SALES_LEAD_SUPERSEDING_CARRIER),
+    `the carrier '${SALES_LEAD_SUPERSEDING_CARRIER}' is not in the prompt contract`);
+  for (const id of SALES_LEAD_TENANTS) {
+    const out = mapper.mapToApiPayload(id, {});
+    assert.ok(Array.isArray(out[SALES_LEAD_SUPERSEDING_CARRIER]),
+      `${id}: carrier is not an array`);
+  }
+});
+
+check('a contacts[] entry is passed through without reshaping', () => {
+  // The API normalises these itself -- it reformatted the phone and added
+  // linkedin/role/isDecisionMaker on the operator's test. Reshaping here would
+  // fight a server that already does it correctly.
+  const contact = { name: 'A. Person', title: 'Director', phone: '+1-555-0100', email: 'a@b.c' };
+  for (const id of SALES_LEAD_TENANTS) {
+    const out = mapper.mapToApiPayload(id, { contacts: [{ ...contact }] });
+    assert.deepStrictEqual(out.contacts[0], contact, `${id} reshaped a contact`);
+  }
 });
 
 console.log(`\n${passed} check(s) passed.`);
