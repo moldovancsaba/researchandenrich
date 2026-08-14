@@ -13,3 +13,9 @@ out/
 .env.dvsc
 .env.classscout
 tsconfig.tsbuildinfo
+
+# Every env file, tracked or not. The previous list named four files by hand
+# and missed .env.cogmap and its .bak -- and gitignore does nothing for a file
+# that is already tracked, which is how five of them reached the remote.
+.env*
+!.env*.example
